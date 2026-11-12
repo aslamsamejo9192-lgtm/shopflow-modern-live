@@ -214,14 +214,19 @@
   .auth-hero h1{margin:0; font-size:30px; font-weight:800; letter-spacing:-.02em;}
   .auth-hero p{margin:7px 0 0; font-size:13.5px; opacity:.88; line-height:1.55; font-weight:500;}
   .auth-card{margin:-20px 16px 0; background:var(--card); border:1px solid var(--line); border-radius:24px; box-shadow:0 20px 40px -18px rgba(12,43,40,.3); padding:20px 18px;}
-  .ob-hero{position:relative;}
+  .ob{flex:1; min-height:0; display:flex; flex-direction:column; justify-content:space-between; padding:26px 22px calc(20px + env(safe-area-inset-bottom)); background:radial-gradient(130% 90% at 50% 0%, #125349 0%, #0a2724 58%, #071f1c 100%); color:#fff; overflow:hidden; position:relative;}
   .ob-back{position:absolute; top:18px; left:16px; width:40px; height:40px; border-radius:999px; background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.22); color:#fff; font-size:19px; display:grid; place-items:center; cursor:pointer;}
-  .ob-title{margin:0 0 8px; font-size:22px; font-weight:800; text-align:center; letter-spacing:-.01em; color:var(--ink);}
-  .ob-text{margin:0; font-size:14.5px; color:var(--ink2); line-height:1.6; text-align:center;}
-  .ob-chips{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:16px;}
-  .ob-dots{display:flex; gap:8px; justify-content:center; margin:22px 0 0; padding:0;}
-  .ob-dots button{width:8px; height:8px; min-height:8px; border-radius:999px; border:0; padding:0; background:var(--line); cursor:pointer;}
-  .ob-dots button.on{width:26px; background:#0d9488;}
+  .ob-top{display:flex; flex-direction:column; align-items:center; min-height:0; flex:none;}
+  .ob-icon{width:84px;height:84px;border-radius:26px;background:rgba(255,255,255,.14);display:grid;place-items:center;font-size:40px;border:1px solid rgba(255,255,255,.28);}
+  .ob-mid{text-align:center; padding:0 6px; min-height:0; flex:none;}
+  .ob-title{margin:0 0 10px; font-size:26px; font-weight:800; letter-spacing:-.01em; color:#fff;}
+  .ob-text{margin:0; font-size:14.5px; color:rgba(255,255,255,.85); line-height:1.6;}
+  .ob-chips{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:18px;}
+  .ob-chip{border:1px solid rgba(255,255,255,.25); background:rgba(255,255,255,.12); color:#fff; border-radius:999px; padding:8px 15px; font-size:13px; font-weight:700; min-height:38px; white-space:nowrap;}
+  .ob-bot{min-height:0; flex:none;}
+  .ob-dots{display:flex; gap:8px; justify-content:center; margin:0 0 18px; padding:0;}
+  .ob-dots button{width:8px; height:8px; min-height:8px; border-radius:999px; border:0; padding:0; background:rgba(255,255,255,.28); cursor:pointer;}
+  .ob-dots button.on{width:26px; background:#fbbf24;}
   .wl{flex:1; min-height:0; display:flex; flex-direction:column; justify-content:space-between; padding:26px 22px calc(20px + env(safe-area-inset-bottom)); background:radial-gradient(130% 90% at 50% 0%, #125349 0%, #0a2724 58%, #071f1c 100%); color:#fff; overflow:hidden;}
   .wl-top{display:flex; flex-direction:column; align-items:center; gap:8px; min-height:0; flex:none;}
   .wl-logo{width:66px;height:66px;border-radius:22px;background:rgba(255,255,255,.14);display:grid;place-items:center;font-size:32px;border:1px solid rgba(255,255,255,.28);}
@@ -664,14 +669,14 @@ function onboardNext(){ if((S.onboardStep||0)>=ONBOARD.length-1){ finishOnboard(
 function finishOnboard(){ try{ localStorage.setItem('shopflow_onboarded_v1','1'); }catch(e){} S.screen='login'; render(); var sc=document.querySelector('.scroll'); if(sc) sc.scrollTop=0; window.scrollTo(0,0); }
 function vOnboard(){
   var i=S.onboardStep||0; var s=ONBOARD[i];
-  var h='<div class="auth-hero ob-hero">';
+  var h='<div class="ob">';
   if(i>0) h+='<button class="ob-back" onclick="setOnboard('+(i-1)+')" aria-label="Back">‹</button>';
-  h+='<div class="logo" style="width:84px;height:84px;font-size:40px;border-radius:26px;">'+s.ic+'</div></div>';
-  h+='<div class="auth-card"><h2 class="ob-title">'+s.t+'</h2><p class="ob-text">'+s.d+'</p>'
-    +'<div class="ob-chips">'+s.chips.map(function(c){ return '<span class="chip">'+c+'</span>'; }).join('')+'</div>'
-    +'<div class="ob-dots">'+ONBOARD.map(function(_,d){ return '<button class="'+(d===i?'on':'')+'" onclick="setOnboard('+d+')" aria-label="Onboarding step '+(d+1)+'"></button>'; }).join('')+'</div>'
-    +'<button class="btn emerald block" style="margin-top:20px;" onclick="onboardNext()">'+(i>=ONBOARD.length-1?'Get Started':'Next')+'</button></div>';
-  return '<div class="scroll no-nav" style="padding:0;">'+h+'<div style="height:30px;"></div></div>';
+  h+='<div class="ob-top"><div class="ob-icon">'+s.ic+'</div></div>'
+    +'<div class="ob-mid"><h2 class="ob-title">'+s.t+'</h2><p class="ob-text">'+s.d+'</p>'
+    +'<div class="ob-chips">'+s.chips.map(function(c){ return '<span class="ob-chip">'+c+'</span>'; }).join('')+'</div></div>'
+    +'<div class="ob-bot"><div class="ob-dots">'+ONBOARD.map(function(_,d){ return '<button class="'+(d===i?'on':'')+'" onclick="setOnboard('+d+')" aria-label="Onboarding step '+(d+1)+'"></button>'; }).join('')+'</div>'
+    +'<button class="btn emerald block" onclick="onboardNext()">'+(i>=ONBOARD.length-1?'Get Started':'Next')+'</button></div>';
+  return h+'</div>';
 }
 /* ================= WELCOME (after sign-in, before dashboard, once per load) ================= */
 var WELCOME_STATUS=['Opening your shop…','Fetching today\u2019s sales…','Checking stock…','Almost ready…'];
