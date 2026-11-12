@@ -230,7 +230,13 @@
   .plan{border:1.5px solid var(--line); border-radius:20px; padding:16px; margin-top:12px; background:var(--card);}
   .plan.cur{border-color:#0d9488; background:var(--emerald-soft);}
   .plan .pname{font-size:16px; font-weight:800;}
-  .plan .pprice{font-size:23px; font-weight:800; color:var(--ink); letter-spacing:-.02em;}
+  .plan .pprice{font-size:30px; font-weight:800; color:var(--ink); letter-spacing:-.02em; margin-top:2px;}
+  .plan hr{border:0; border-top:1px solid var(--line); margin:14px 0 0;}
+  .plan details{margin-top:12px;}
+  .plan summary{font-size:14px; font-weight:800; cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; color:var(--ink);}
+  .plan summary::-webkit-details-marker{display:none;}
+  .plan summary::after{content:'▾'; color:var(--muted); font-size:12px;}
+  .plan details[open ] summary::after{content:'▴';}
   .plan ul{margin:9px 0 0; padding-left:18px; font-size:13px; color:var(--ink2); line-height:1.7;}
 
   .toast{
@@ -1311,10 +1317,14 @@ function vSubscription(){
   var subActive=S.subscription && S.subscription.status==='active' && tsMs(S.subscription.expiresAt)>Date.now();
   inner+=PLANS.map(function(p){
     var cur=S.plan===p.name.toLowerCase();
-    return '<div class="plan'+(cur?' cur':'')+'"><div class="row"><div><div class="pname">'+p.name+'</div><div class="pprice">'+fmt(p.price)+'<span class="small muted"> /month</span></div>'
-      +(cur?'<span class="badge b-green right">Current Plan</span>':'<button class="btn sm right" onclick="choosePlan(\''+p.name+'\')">Choose</button>')+'</div>'
-      +(cur&&subActive?'<div class="muted small" style="margin-top:4px;">Active until '+new Date(tsMs(S.subscription.expiresAt)).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+'</div>':'')
-      +'<ul>'+p.feats.map(function(f){ return '<li>'+f+'</li>'; }).join('')+'</ul></div>';
+    return '<div class="plan'+(cur?' cur':'')+'"><div class="pname">'+p.name+'</div>'
+      +'<div class="pprice">'+fmt(p.price)+'<span class="small muted"> /month</span></div>'
+      +(cur
+        ?'<div style="margin-top:14px;text-align:center;"><span class="badge b-green">Current Plan</span></div>'
+          +(subActive?'<div class="muted small" style="margin-top:6px;text-align:center;">Active until '+new Date(tsMs(S.subscription.expiresAt)).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+'</div>':'')
+        :'<button class="btn emerald block" style="margin-top:14px;" onclick="choosePlan(\''+p.name+'\')">Choose</button>')
+      +'<hr><details><summary>What\'s included ('+p.feats.length+')</summary>'
+      +'<ul>'+p.feats.map(function(f){ return '<li>'+f+'</li>'; }).join('')+'</ul></details></div>';
   }).join('');
   var selName=S.payPlanChosen?S.payPlanName:planName(S.plan);
   if(selName==='Free') selName='Starter';
