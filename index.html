@@ -214,6 +214,14 @@
   .auth-hero h1{margin:0; font-size:30px; font-weight:800; letter-spacing:-.02em;}
   .auth-hero p{margin:7px 0 0; font-size:13.5px; opacity:.88; line-height:1.55; font-weight:500;}
   .auth-card{margin:-20px 16px 0; background:var(--card); border:1px solid var(--line); border-radius:24px; box-shadow:0 20px 40px -18px rgba(12,43,40,.3); padding:20px 18px;}
+  .ob-hero{position:relative;}
+  .ob-back{position:absolute; top:18px; left:16px; width:40px; height:40px; border-radius:999px; background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.22); color:#fff; font-size:19px; display:grid; place-items:center; cursor:pointer;}
+  .ob-title{margin:0 0 8px; font-size:22px; font-weight:800; text-align:center; letter-spacing:-.01em; color:var(--ink);}
+  .ob-text{margin:0; font-size:14.5px; color:var(--ink2); line-height:1.6; text-align:center;}
+  .ob-chips{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:16px;}
+  .ob-dots{display:flex; gap:8px; justify-content:center; margin:22px 0 0; padding:0;}
+  .ob-dots button{width:8px; height:8px; min-height:8px; border-radius:999px; border:0; padding:0; background:var(--line); cursor:pointer;}
+  .ob-dots button.on{width:26px; background:#0d9488;}
   .link{background:none; border:0; color:#0f766e; font-weight:700; font-size:13.5px; padding:6px 2px; min-height:38px;}
   [data-theme="dark"] .link{color:#2dd4bf;}
   .google-btn{width:100%; background:var(--card); border:1.5px solid var(--line); color:var(--ink); border-radius:14px; font-weight:700; font-size:14.5px; min-height:48px;}
@@ -286,7 +294,7 @@ function rid(prefix, len){ var c='abcdefghijklmnopqrstuvwxyz0123456789'; var s='
 function defaultShop(){ return {id:'', name:'', category:'General Store', currency:'PKR', phone:'', address:'', email:'', tax:0, plan:'free', lowStock:5, allowCredit:true, allowNegStock:false, includeTax:true, status:'active', lastSaleNo:1000, lastPurchaseNo:200}; }
 
 var S = {
-  screen:'loading', authMode:'login', theme:'light', loading:true,
+  screen:'loading', authMode:'login', theme:'light', loading:true, onboardStep:0,
   shopId:'', shop:defaultShop(), user:null, profile:null, isSuperAdmin:false,
   plan:'free', subscription:null,
   dashFilter:'today', reportFilter:'7',
@@ -622,6 +630,28 @@ function toggleNotif(){ S.notifOpen=!S.notifOpen; render(); }
 function pad(inner){ return '<div style="padding:0 16px;">'+inner+'</div>'; }
 
 /* ================= AUTH ================= */
+/* ================= ONBOARDING (first open only, before login) ================= */
+var ONBOARD=[
+  {ic:'🧾', t:'Fast POS Billing', d:'Sell in seconds — cash or credit, discounts, tax, and a proper receipt for every sale.', chips:['Cash','Credit','Discounts','Receipt PDF']},
+  {ic:'📦', t:'Stock Always Under Control', d:'Products, purchases and low-stock alerts in one place — never run out of your best sellers.', chips:['Products','Purchases','Low-stock alerts']},
+  {ic:'👥', t:'Dues, Clearly Tracked', d:'Customer dues and supplier payables with full ledgers — collect and pay on time, every time.', chips:['Customer ledger','Supplier ledger','Collect payments']},
+  {ic:'📊', t:'Reports That Show Profit', d:'Daily sales, profit, expenses and P&amp;L — know exactly how your shop is doing.', chips:['Daily sales','Profit','Expenses','P&amp;L']}
+];
+function onboardDone(){ try{ return localStorage.getItem('shopflow_onboarded_v1')==='1'; }catch(e){ return false; } }
+function setOnboard(i){ S.onboardStep=Math.max(0, Math.min(ONBOARD.length-1, i)); S.screen='onboard'; render(); var sc=document.querySelector('.scroll'); if(sc) sc.scrollTop=0; window.scrollTo(0,0); }
+function onboardNext(){ if((S.onboardStep||0)>=ONBOARD.length-1){ finishOnboard(); } else { setOnboard((S.onboardStep||0)+1); } }
+function finishOnboard(){ try{ localStorage.setItem('shopflow_onboarded_v1','1'); }catch(e){} S.screen='login'; render(); var sc=document.querySelector('.scroll'); if(sc) sc.scrollTop=0; window.scrollTo(0,0); }
+function vOnboard(){
+  var i=S.onboardStep||0; var s=ONBOARD[i];
+  var h='<div class="auth-hero ob-hero">';
+  if(i>0) h+='<button class="ob-back" onclick="setOnboard('+(i-1)+')" aria-label="Back">‹</button>';
+  h+='<div class="logo" style="width:84px;height:84px;font-size:40px;border-radius:26px;">'+s.ic+'</div></div>';
+  h+='<div class="auth-card"><h2 class="ob-title">'+s.t+'</h2><p class="ob-text">'+s.d+'</p>'
+    +'<div class="ob-chips">'+s.chips.map(function(c){ return '<span class="chip">'+c+'</span>'; }).join('')+'</div>'
+    +'<div class="ob-dots">'+ONBOARD.map(function(_,d){ return '<button class="'+(d===i?'on':'')+'" onclick="setOnboard('+d+')" aria-label="Onboarding step '+(d+1)+'"></button>'; }).join('')+'</div>'
+    +'<button class="btn emerald block" style="margin-top:20px;" onclick="onboardNext()">'+(i>=ONBOARD.length-1?'Get Started':'Next')+'</button></div>';
+  return '<div class="scroll no-nav" style="padding:0;">'+h+'<div style="height:30px;"></div></div>';
+}
 function vLogin(){
   var reg=S.authMode==='register';
   var h='<div class="auth-hero"><div class="logo">🛒</div><h1>ShopFlow</h1><p>Shop management for Pakistani stores — POS, stock, dues &amp; reports in one app.</p></div>';
@@ -672,7 +702,7 @@ function getOrCreateProfile(fbUser, displayName){
 function updateUserShopId(shopId){ return updateDoc(doc(db,'users',S.user.uid), {shopId:shopId, updatedAt:serverTimestamp()}); }
 function initAuth(){
   onAuthStateChanged(auth, function(fbUser){
-    if(!fbUser){ stopListeners(); S.user=null; S.profile=null; S.shopId=''; S.shop=defaultShop(); S.isSuperAdmin=false; S.plan='free'; S.subscription=null; S.categories=[]; S.products=[]; S.customers=[]; S.suppliers=[]; S.sales=[]; S.purchases=[]; S.expenses=[]; S.movements=[]; S.employees=[]; S.custPayments=[]; S.myPayments=[]; S.adminPayments=[]; S.adminShops=[]; S.adminUsers=[]; S.adminSubs=[]; S.cart=[]; S.payScreenshot=''; S.loading=false; S.screen='login'; render(); return; }
+    if(!fbUser){ stopListeners(); S.user=null; S.profile=null; S.shopId=''; S.shop=defaultShop(); S.isSuperAdmin=false; S.plan='free'; S.subscription=null; S.categories=[]; S.products=[]; S.customers=[]; S.suppliers=[]; S.sales=[]; S.purchases=[]; S.expenses=[]; S.movements=[]; S.employees=[]; S.custPayments=[]; S.myPayments=[]; S.adminPayments=[]; S.adminShops=[]; S.adminUsers=[]; S.adminSubs=[]; S.cart=[]; S.payScreenshot=''; S.loading=false; S.onboardStep=0; S.screen=onboardDone()?'login':'onboard'; render(); return; }
     S.isSuperAdmin=SUPER_ADMIN_EMAILS.indexOf(fbUser.email||'')>=0;
     S.user={uid:fbUser.uid, name:fbUser.displayName||'', email:fbUser.email||''};
     getOrCreateProfile(fbUser, fbUser.displayName||'').then(function(profile){
@@ -1453,7 +1483,7 @@ function saveShopSettings(btn){
 function setTheme(on){ S.theme=on?'dark':'light'; try{ localStorage.setItem('shopflow_theme', S.theme); }catch(e){} document.documentElement.setAttribute('data-theme',S.theme); render(); }
 
 /* ================= RENDER ================= */
-var VIEWS={ loading:vLoading, login:vLogin, setup:vSetup, dashboard:vDashboard, pos:vPOS, receipt:vReceipt,
+var VIEWS={ loading:vLoading, login:vLogin, onboard:vOnboard, setup:vSetup, dashboard:vDashboard, pos:vPOS, receipt:vReceipt,
   products:vProducts, productForm:editProductView, categories:vCategories, purchases:vPurchases,
   purchaseForm:vPurchaseForm, inventory:vInventory, sales:vSales, saleDetail:vSaleDetail,
   customers:vCustomers, customerDetail:vCustomerDetail, suppliers:vSuppliers, supplierDetail:vSupplierDetail,
@@ -1465,7 +1495,7 @@ function render(){ if(S.loading && S.screen!=='login'){ $('app').innerHTML=vLoad
 $('modalWrap').addEventListener('click', function(e){ if(e.target===this) closeModal(); });
 try{ var savedTheme=localStorage.getItem('shopflow_theme'); if(savedTheme==='dark'||savedTheme==='light'){ S.theme=savedTheme; document.documentElement.setAttribute('data-theme',S.theme); } }catch(e){}
 /* expose handlers for inline onclick attributes (module scope is not global) */
-Object.assign(window, {S:S, render:render, go:go, toggleNotif:toggleNotif, setAuth:setAuth, doLogin:doLogin, forgotPassword:forgotPassword, launchShop:launchShop, setDashFilter:setDashFilter, refreshPOSList:refreshPOSList, addToCart:addToCart, chgQty:chgQty, removeCart:removeCart, setItemDisc:setItemDisc, updChange:updChange, completeSale:completeSale, saveProduct:saveProduct, adjustStockPrompt:adjustStockPrompt, saveAdjustment:saveAdjustment, archiveProduct:archiveProduct, addCat:addCat, renameCat:renameCat, saveCat:saveCat, deleteCat:deleteCat, newPurchase:newPurchase, setPurProd:setPurProd, addPurLine:addPurLine, completePurchase:completePurchase, collectPayment:collectPayment, paySupplier:paySupplier, addCustomer:addCustomer, addSupplier:addSupplier, addExpense:addExpense, toggleEmp:toggleEmp, addEmployee:addEmployee, choosePlan:choosePlan, submitPayment:submitPayment, adminPay:adminPay, logout:logout, setTheme:setTheme, closeModal:closeModal, toast:toast, exportSalesCSV:exportSalesCSV, exportProductsCSV:exportProductsCSV, exportCustomersCSV:exportCustomersCSV, downloadBackup:downloadBackup, saveShopSettings:saveShopSettings, googleLogin:googleLogin, downloadReceiptPDF:downloadReceiptPDF, printReceipt:printReceipt, printSaleReceipt:printSaleReceipt, printCustomerReceipt:printCustomerReceipt, printCustomerStatement:printCustomerStatement, downloadReportPDF:downloadReportPDF, openScreenshotPicker:openScreenshotPicker, attachScreenshot:attachScreenshot, viewScreenshot:viewScreenshot, changePasswordPrompt:changePasswordPrompt, changePassword:changePassword, press:press, unpress:unpress});
+Object.assign(window, {S:S, render:render, go:go, setOnboard:setOnboard, onboardNext:onboardNext, toggleNotif:toggleNotif, setAuth:setAuth, doLogin:doLogin, forgotPassword:forgotPassword, launchShop:launchShop, setDashFilter:setDashFilter, refreshPOSList:refreshPOSList, addToCart:addToCart, chgQty:chgQty, removeCart:removeCart, setItemDisc:setItemDisc, updChange:updChange, completeSale:completeSale, saveProduct:saveProduct, adjustStockPrompt:adjustStockPrompt, saveAdjustment:saveAdjustment, archiveProduct:archiveProduct, addCat:addCat, renameCat:renameCat, saveCat:saveCat, deleteCat:deleteCat, newPurchase:newPurchase, setPurProd:setPurProd, addPurLine:addPurLine, completePurchase:completePurchase, collectPayment:collectPayment, paySupplier:paySupplier, addCustomer:addCustomer, addSupplier:addSupplier, addExpense:addExpense, toggleEmp:toggleEmp, addEmployee:addEmployee, choosePlan:choosePlan, submitPayment:submitPayment, adminPay:adminPay, logout:logout, setTheme:setTheme, closeModal:closeModal, toast:toast, exportSalesCSV:exportSalesCSV, exportProductsCSV:exportProductsCSV, exportCustomersCSV:exportCustomersCSV, downloadBackup:downloadBackup, saveShopSettings:saveShopSettings, googleLogin:googleLogin, downloadReceiptPDF:downloadReceiptPDF, printReceipt:printReceipt, printSaleReceipt:printSaleReceipt, printCustomerReceipt:printCustomerReceipt, printCustomerStatement:printCustomerStatement, downloadReportPDF:downloadReportPDF, openScreenshotPicker:openScreenshotPicker, attachScreenshot:attachScreenshot, viewScreenshot:viewScreenshot, changePasswordPrompt:changePasswordPrompt, changePassword:changePassword, press:press, unpress:unpress});
 initAuth();
 render();
 </script>
