@@ -427,36 +427,57 @@ function receiptRows(s){ return s.items.map(function(it){ return {name:it.name, 
 function downloadReceiptPDF(btn){
   var s=S.lastSale; if(!s){ toast('No receipt to download yet'); return; }
   press(btn,'Preparing…');
-  var doc=newPDF(); if(!doc){ unpress(btn); return; }
-  var y=48;
-  doc.setFont('helvetica','bold'); doc.setFontSize(16);
-  doc.text(S.shop.name||'ShopFlow', 297.6, y, {align:'center'}); y+=20;
-  doc.setFont('helvetica','normal'); doc.setFontSize(10);
-  if(S.shop.address){ doc.text(S.shop.address, 297.6, y, {align:'center'}); y+=14; }
-  if(S.shop.phone){ doc.text('Phone: '+S.shop.phone, 297.6, y, {align:'center'}); y+=14; }
-  y+=4; doc.line(40,y,555.3,y); y+=18;
-  doc.setFontSize(11);
-  doc.text('Invoice #'+s.inv, 40, y); doc.text(tstr(s.ts), 555.3, y, {align:'right'}); y+=16;
-  doc.text('Customer: '+(s.cust||'Walk-in'), 40, y); doc.text('Payment: '+(s.pay||''), 555.3, y, {align:'right'}); y+=16;
-  y+=2; doc.line(40,y,555.3,y); y+=18;
-  doc.setFont('helvetica','bold');
-  doc.text('Item', 40, y); doc.text('Qty', 400, y, {align:'right'}); doc.text('Amount', 555.3, y, {align:'right'}); y+=16;
-  doc.setFont('helvetica','normal');
-  receiptRows(s).forEach(function(r){
-    if(y>740){ doc.addPage(); y=48; }
-    doc.text(r.name, 40, y); doc.text(String(r.qty), 400, y, {align:'right'}); doc.text(fmt(r.amt), 555.3, y, {align:'right'}); y+=15;
-  });
-  y+=4; doc.line(40,y,555.3,y); y+=18;
-  var sub=(s.subtotal!=null)?s.subtotal:receiptRows(s).reduce(function(a,r){ return a+r.amt; },0);
-  doc.text('Subtotal', 40, y); doc.text(fmt(sub), 555.3, y, {align:'right'}); y+=16;
-  if(s.disc){ doc.text('Discount', 40, y); doc.text('- '+fmt(s.disc), 555.3, y, {align:'right'}); y+=16; }
-  doc.text('Tax', 40, y); doc.text(fmt(s.tax||0), 555.3, y, {align:'right'}); y+=16;
-  doc.setFont('helvetica','bold'); doc.setFontSize(12);
-  doc.text('Grand Total', 40, y); doc.text(fmt(s.total), 555.3, y, {align:'right'}); y+=18;
-  doc.setFont('helvetica','normal'); doc.setFontSize(11);
-  doc.text('Paid', 40, y); doc.text(fmt(s.paid), 555.3, y, {align:'right'}); y+=16;
-  doc.text('Due', 40, y); doc.text(fmt(s.total-s.paid), 555.3, y, {align:'right'}); y+=22;
-  doc.text('Thank you for shopping with us!', 297.6, y, {align:'center'});
+  var J=jspdfLib(); if(!J){ unpress(btn); toast('PDF library could not load — check connection and try again'); return; }
+  var W=226.77, M=10, CX=W/2, RX=W-M, ITEM_W=112, QTY_X=160;
+  var rows=receiptRows(s);
+  var sub=(s.subtotal!=null)?s.subtotal:rows.reduce(function(a,r){ return a+r.amt; },0);
+  var due=s.total-s.paid;
+  var cashier=((S.user && S.user.name) || (S.user && S.user.email) || 'Owner');
+  var method=((s.pay||'CASH')+'').toUpperCase();
+  var meta=['Invoice: '+s.inv, 'Date: '+tstr(s.ts), 'Cashier: '+cashier, 'Customer: '+(s.cust||'Walk-in Customer')];
+  var totals=[['Subtotal: ', fmt(sub)]];
+  if(s.disc) totals.push(['Discount: ', '- '+fmt(s.disc)]);
+  if(s.tax) totals.push(['Tax: ', fmt(s.tax)]);
+  totals.push(['Paid ('+method+'): ', fmt(s.paid)]);
+  if(due>0) totals.push(['Due: ', fmt(due)]);
+  function draw(doc){
+    var y=16, i, j;
+    doc.setFont('helvetica','bold'); doc.setFontSize(15);
+    var storeLines=doc.splitTextToSize(S.shop.name||'ShopFlow', W-2*M);
+    storeLines.forEach(function(l){ doc.text(l, CX, y, {align:'center'}); y+=17; });
+    y+=6; doc.setDrawColor(180,180,180); doc.line(M,y,RX,y); y+=8;
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    meta.forEach(function(m){ doc.splitTextToSize(m, W-2*M).forEach(function(l){ doc.text(l, M, y); y+=12; }); });
+    y+=6; doc.line(M,y,RX,y); y+=8;
+    doc.setFont('helvetica','bold');
+    doc.text('Item', M, y); doc.text('Qty', QTY_X, y, {align:'right'}); doc.text('Total (PKR)', RX, y, {align:'right'}); y+=11;
+    y+=4; doc.line(M,y,RX,y); y+=6;
+    doc.setFont('helvetica','normal');
+    rows.forEach(function(r, idx){
+      var lines=doc.splitTextToSize(r.name, ITEM_W);
+      var price=(s.items[idx] && s.items[idx].price!=null)?s.items[idx].price:(r.qty?r.amt/r.qty:0);
+      doc.text(r.qty+' x '+Math.round(price), QTY_X, y, {align:'right'});
+      doc.text(fmt(r.amt), RX, y, {align:'right'});
+      lines.forEach(function(l, j){ doc.text(l, M, y+j*11.5); });
+      y+=lines.length*11.5;
+    });
+    y+=4; doc.line(M,y,RX,y); y+=8;
+    totals.forEach(function(t){ doc.text(t[0], M, y); doc.text(t[1], RX, y, {align:'right'}); y+=13; });
+    y+=6;
+    doc.setFont('helvetica','bold'); doc.setFontSize(12);
+    doc.text('TOTAL: '+fmt(s.total), CX, y, {align:'center'}); y+=16;
+    y+=8;
+    doc.setFont('helvetica','italic'); doc.setFontSize(9);
+    doc.text('Thank you for shopping with us! Visit again.', CX, y, {align:'center'}); y+=12;
+    doc.setFont('helvetica','normal');
+    doc.text('Powered by ShopFlow Cloud POS', CX, y, {align:'center'}); y+=12;
+    return y+10;
+  }
+  // measure on a scratch doc so the final page height fits the content exactly
+  var probe=new J({unit:'pt', format:[W, 2000]});
+  var H=draw(probe);
+  var doc=new J({unit:'pt', format:[W, H]});
+  draw(doc);
   doc.save('Invoice-'+String(s.inv).replace(/[^A-Za-z0-9\-]/g,'')+'.pdf');
   unpress(btn);
   toast('Invoice PDF downloaded');
