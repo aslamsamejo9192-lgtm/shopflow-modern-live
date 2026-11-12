@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="color-scheme" content="light dark" />
 <link rel="icon" href="data:," />
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#0d9488" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="ShopFlow" />
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <title>ShopFlow Android App Modern</title>
@@ -1562,6 +1568,14 @@ Object.assign(window, {S:S, render:render, go:go, setOnboard:setOnboard, onboard
 (function(){ var c=readCachedShop(); if(c){ S.shop=Object.assign(defaultShop(), {name:c.name, category:c.category||'', address:c.address||''}); S.welcomed=true; S.screen='welcome'; startWelcome(); } })();
 initAuth();
 render();
+/* PWA: register the service worker (installable app). A registration failure must never break the app. */
+try {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/sw.js').catch(function () {});
+    });
+  }
+} catch (e) {}
 </script>
 </body>
 </html>
