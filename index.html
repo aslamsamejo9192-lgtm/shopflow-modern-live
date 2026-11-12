@@ -6,6 +6,7 @@
 <meta name="color-scheme" content="light dark" />
 <link rel="icon" href="data:," />
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <title>ShopFlow Android App Modern</title>
 <style>
   :root{
@@ -89,6 +90,20 @@
   .btn.danger{background:var(--red-soft); color:var(--red); box-shadow:none;}
   .btn.sm{min-height:38px; padding:7px 13px; font-size:13px; border-radius:11px; box-shadow:none;}
   .btn:disabled{opacity:.5;}
+  button:active{transform:scale(.97);}
+  .busy{opacity:.6 !important; pointer-events:none;}
+  #print-area{display:none;}
+  @media print{
+    body{display:block; background:#fff; padding:0;}
+    #phone{display:none !important;}
+    #print-area{display:block !important; color:#111; font-family:"Courier New",monospace; font-size:13px; line-height:1.5; padding:10px;}
+    #print-area h4{margin:0 0 4px; text-align:center; font-size:16px;}
+    #print-area .c{text-align:center;}
+    #print-area hr{border:0; border-top:1px dashed #9aa5b5; margin:9px 0;}
+    #print-area table{width:100%; font-size:12.5px; border-collapse:collapse;}
+    #print-area td,#print-area th{padding:3px 2px; text-align:left; border:0;}
+    #print-area td.num,#print-area th.num{text-align:right;}
+  }
   .chip{
     border:1.5px solid var(--line); background:var(--card); color:var(--ink2);
     border-radius:999px; padding:8px 15px; font-size:13px; font-weight:700; min-height:38px; white-space:nowrap;
@@ -236,11 +251,12 @@
   <div id="app" style="display:flex;flex-direction:column;flex:1;min-height:0;"></div>
   <div class="toast" id="toast"></div>
   <div class="modal-wrap" id="modalWrap"><div class="modal" id="modalBox"></div></div>
+<div id="print-area"></div>
 </div>
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js';
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, setPersistence, browserLocalPersistence } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, setPersistence, browserLocalPersistence, GoogleAuthProvider, signInWithPopup, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js';
 import { getFirestore, doc, collection, query, where, onSnapshot, getDoc, setDoc, updateDoc, deleteDoc, runTransaction, serverTimestamp, increment, writeBatch } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 /* ================= FIREBASE (ShopFlow backend) ================= */
 const firebaseConfig = {"apiKey": "AIzaSyDcl40Rd9qltVxIrU-XTitXSckmAKLnO0M", "authDomain": "graphic-mode-k5p7n.firebaseapp.com", "projectId": "graphic-mode-k5p7n", "storageBucket": "graphic-mode-k5p7n.firebasestorage.app", "messagingSenderId": "657836619427", "appId": "1:657836619427:web:c091f3679f4289b50b7116"};
@@ -278,7 +294,8 @@ var S = {
   categories:[], products:[], customers:[], suppliers:[], sales:[], purchases:[], expenses:[], movements:[], employees:[], custPayments:[],
   myPayments:[], adminPayments:[], adminShops:[], adminUsers:[], adminSubs:[],
   purLines:[], purSupplier:'', purDisc:0,
-  lastSale:null
+  lastSale:null,
+  payScreenshot:''
 };
 
 /* ---------- Firestore document -> in-page model ---------- */
@@ -295,7 +312,7 @@ function mapMovement(d){ var x=d.data(); var ts=tsMs(x.createdAt); return {id:d.
 function roleLabel(r){ if(r==='owner') return 'Owner'; if(r==='manager') return 'Manager'; if(r==='cashier') return 'Cashier'; return 'Inventory Staff'; }
 function roleId(lbl){ if(lbl==='Owner') return 'owner'; if(lbl==='Manager') return 'manager'; if(lbl==='Cashier') return 'cashier'; return 'inventory'; }
 function mapEmployee(d){ var x=d.data(); return {id:d.id, name:x.name||'', email:x.email||'', phone:x.phone||'', role:roleLabel(x.role||'cashier'), roleId:x.role||'cashier', active:x.status!=='disabled'}; }
-function mapPayment(d){ var x=d.data(); return {id:d.id, ownerId:x.ownerId||'', ownerEmail:x.ownerEmail||'', planId:x.planId||'', planName:x.planName||'', amount:num(x.amount), method:x.paymentMethod||'', ref:x.transactionRef||'', notes:x.notes||'', status:x.status||'pending', adminRemarks:x.adminRemarks||'', verifiedBy:x.verifiedBy||'', verifiedAt:x.verifiedAt||'', createdAt:x.createdAt||'', ts:tsMs(x.createdAt)}; }
+function mapPayment(d){ var x=d.data(); return {id:d.id, ownerId:x.ownerId||'', ownerEmail:x.ownerEmail||'', planId:x.planId||'', planName:x.planName||'', amount:num(x.amount), method:x.paymentMethod||'', ref:x.transactionRef||'', notes:x.notes||'', status:x.status||'pending', adminRemarks:x.adminRemarks||'', verifiedBy:x.verifiedBy||'', verifiedAt:x.verifiedAt||'', createdAt:x.createdAt||'', screenshot:x.screenshot||'', ts:tsMs(x.createdAt)}; }
 function mapSubscription(d){ var x=d.data(); return {id:d.id, ownerId:x.ownerId||'', planId:x.planId||'', planName:x.planName||'', status:x.status||'', amount:num(x.amount), expiresAt:x.expiresAt||'', createdAt:x.createdAt||''}; }
 function planName(id){ if(id==='pro') return 'Pro'; if(id==='business') return 'Business'; if(id==='starter') return 'Starter'; if(id==='basic') return 'Basic'; if(id==='premium') return 'Premium'; return 'Free'; }
 function updateEffectivePlan(){ if(S.subscription && S.subscription.status==='active' && tsMs(S.subscription.expiresAt)>Date.now()) S.plan=S.subscription.planId||'free'; else S.plan=(S.shop&&S.shop.plan)||'free'; }
@@ -352,6 +369,186 @@ function custById(id){ for(var i=0;i<S.customers.length;i++) if(S.customers[i].i
 function supById(id){ for(var i=0;i<S.suppliers.length;i++) if(S.suppliers[i].id===id) return S.suppliers[i]; return null; }
 function catByName(n){ for(var i=0;i<S.categories.length;i++) if(S.categories[i].name===n) return S.categories[i]; return null; }
 function toast(msg){ var t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); },2400); }
+
+/* ---------- click feedback ---------- */
+function press(btn,label){ if(!btn) return null; try{ if(btn.dataset.orig==null) btn.dataset.orig=btn.innerHTML; }catch(e){} btn.classList.add('busy'); btn.disabled=true; btn.innerHTML='⏳ '+(label||'Saving…'); return btn; }
+function unpress(btn){ if(!btn) return; btn.classList.remove('busy'); btn.disabled=false; try{ if(btn.dataset.orig!=null){ btn.innerHTML=btn.dataset.orig; delete btn.dataset.orig; } }catch(e){} }
+
+/* ---------- PDF (jsPDF via CDN) ---------- */
+function jspdfLib(){ return (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : null; }
+function newPDF(){ var J=jspdfLib(); if(!J){ toast('PDF library could not load — check connection and try again'); return null; } return new J({unit:'pt', format:'a4'}); }
+function receiptRows(s){ return s.items.map(function(it){ return {name:it.name, qty:it.qty, amt:it.price*it.qty*(1-(it.disc||0)/100)}; }); }
+function downloadReceiptPDF(btn){
+  var s=S.lastSale; if(!s){ toast('No receipt to download yet'); return; }
+  press(btn,'Preparing…');
+  var doc=newPDF(); if(!doc){ unpress(btn); return; }
+  var y=48;
+  doc.setFont('helvetica','bold'); doc.setFontSize(16);
+  doc.text(S.shop.name||'ShopFlow', 297.6, y, {align:'center'}); y+=20;
+  doc.setFont('helvetica','normal'); doc.setFontSize(10);
+  if(S.shop.address){ doc.text(S.shop.address, 297.6, y, {align:'center'}); y+=14; }
+  if(S.shop.phone){ doc.text('Phone: '+S.shop.phone, 297.6, y, {align:'center'}); y+=14; }
+  y+=4; doc.line(40,y,555.3,y); y+=18;
+  doc.setFontSize(11);
+  doc.text('Invoice #'+s.inv, 40, y); doc.text(tstr(s.ts), 555.3, y, {align:'right'}); y+=16;
+  doc.text('Customer: '+(s.cust||'Walk-in'), 40, y); doc.text('Payment: '+(s.pay||''), 555.3, y, {align:'right'}); y+=16;
+  y+=2; doc.line(40,y,555.3,y); y+=18;
+  doc.setFont('helvetica','bold');
+  doc.text('Item', 40, y); doc.text('Qty', 400, y, {align:'right'}); doc.text('Amount', 555.3, y, {align:'right'}); y+=16;
+  doc.setFont('helvetica','normal');
+  receiptRows(s).forEach(function(r){
+    if(y>740){ doc.addPage(); y=48; }
+    doc.text(r.name, 40, y); doc.text(String(r.qty), 400, y, {align:'right'}); doc.text(fmt(r.amt), 555.3, y, {align:'right'}); y+=15;
+  });
+  y+=4; doc.line(40,y,555.3,y); y+=18;
+  var sub=(s.subtotal!=null)?s.subtotal:receiptRows(s).reduce(function(a,r){ return a+r.amt; },0);
+  doc.text('Subtotal', 40, y); doc.text(fmt(sub), 555.3, y, {align:'right'}); y+=16;
+  if(s.disc){ doc.text('Discount', 40, y); doc.text('- '+fmt(s.disc), 555.3, y, {align:'right'}); y+=16; }
+  doc.text('Tax', 40, y); doc.text(fmt(s.tax||0), 555.3, y, {align:'right'}); y+=16;
+  doc.setFont('helvetica','bold'); doc.setFontSize(12);
+  doc.text('Grand Total', 40, y); doc.text(fmt(s.total), 555.3, y, {align:'right'}); y+=18;
+  doc.setFont('helvetica','normal'); doc.setFontSize(11);
+  doc.text('Paid', 40, y); doc.text(fmt(s.paid), 555.3, y, {align:'right'}); y+=16;
+  doc.text('Due', 40, y); doc.text(fmt(s.total-s.paid), 555.3, y, {align:'right'}); y+=22;
+  doc.text('Thank you for shopping with us!', 297.6, y, {align:'center'});
+  doc.save('Invoice-'+String(s.inv).replace(/[^A-Za-z0-9\-]/g,'')+'.pdf');
+  unpress(btn);
+  toast('Invoice PDF downloaded');
+}
+function downloadReportPDF(btn){
+  var f=S.reportFilter; var maxOff = f==='7'?6 : f==='30'?29 : 0;
+  var label = f==='7'?'Last 7 days' : f==='30'?'Last 30 days' : 'Today';
+  press(btn,'Preparing…');
+  var list=salesIn(0,maxOff);
+  var sales=sumSales(list), profit=sumProfit(list);
+  var exp=S.expenses.filter(function(e){ return Math.floor((Date.now()-e.ts)/DAY)<=maxOff; }).reduce(function(a,e){return a+e.amount;},0);
+  var doc=newPDF(); if(!doc){ unpress(btn); return; }
+  var y=48;
+  doc.setFont('helvetica','bold'); doc.setFontSize(16);
+  doc.text((S.shop.name||'ShopFlow')+' - Sales Report', 40, y); y+=20;
+  doc.setFont('helvetica','normal'); doc.setFontSize(11);
+  doc.text('Period: '+label+'  ·  Generated: '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}), 40, y); y+=20;
+  doc.line(40,y,555.3,y); y+=20;
+  var rows=[['Total Sales',sales],['Gross Profit',profit],['Expenses',exp],['Net Profit',profit-exp],['Customer Dues',custDues()],['Supplier Payables',supPayables()]];
+  rows.forEach(function(r){ doc.text(r[0],40,y); doc.text(fmt(r[1]),555.3,y,{align:'right'}); y+=17; });
+  y+=6; doc.line(40,y,555.3,y); y+=20;
+  doc.setFont('helvetica','bold'); doc.text('Best sellers',40,y); y+=18;
+  doc.setFont('helvetica','normal');
+  var agg={}; S.sales.forEach(function(s){ s.items.forEach(function(it){ agg[it.name]=(agg[it.name]||0)+it.qty; }); });
+  var best=Object.keys(agg).sort(function(a,b){return agg[b]-agg[a];}).slice(0,5);
+  if(!best.length){ doc.text('No sales yet',40,y); y+=16; }
+  best.forEach(function(n){ if(y>740){ doc.addPage(); y=48; } doc.text(n,40,y); doc.text(agg[n]+' sold',555.3,y,{align:'right'}); y+=16; });
+  y+=6; doc.line(40,y,555.3,y); y+=20;
+  doc.setFont('helvetica','bold'); doc.text('Low stock',40,y); y+=18;
+  doc.setFont('helvetica','normal');
+  var low=lowStock().concat(outStock());
+  if(!low.length){ doc.text('All stock levels are healthy',40,y); y+=16; }
+  low.forEach(function(p){ if(y>740){ doc.addPage(); y=48; } doc.text(p.name+' - '+p.stock+' left',40,y); y+=16; });
+  doc.save('ShopFlow-Report-'+label.replace(/\s+/g,'-')+'.pdf');
+  unpress(btn);
+  toast('Report PDF downloaded');
+}
+
+/* ---------- print (receipt / statement) ---------- */
+function printHTML(html){ var pa=$('print-area'); if(!pa){ toast('Print is not available'); return; } pa.innerHTML=html; setTimeout(function(){ window.print(); },60); }
+function receiptPrintHTML(s){
+  var rows=s.items.map(function(it){ return '<tr><td>'+esc(it.name)+'</td><td class="num">'+it.qty+'</td><td class="num">'+fmt(it.price*it.qty*(1-(it.disc||0)/100))+'</td></tr>'; }).join('');
+  return '<h4>'+esc(S.shop.name)+'</h4><div class="c small">'+esc(S.shop.address)+'<br>'+esc(S.shop.phone)+'</div><hr>'
+    +'<div>Invoice #'+esc(s.inv)+' &nbsp; '+tstr(s.ts)+'<br>Customer: '+esc(s.cust)+' &nbsp;·&nbsp; '+(s.pay||'')+'</div><hr>'
+    +'<table><tr><th>Item</th><th class="num">Qty</th><th class="num">Amount</th></tr>'+rows+'</table><hr>'
+    +(s.disc?'<div>Discount: - '+fmt(s.disc)+'</div>':'')
+    +'<div>Tax: '+fmt(s.tax||0)+'</div><div><b>Grand Total: '+fmt(s.total)+'</b></div>'
+    +'<div>Paid: '+fmt(s.paid)+' &nbsp; Due: '+fmt(s.total-s.paid)+'</div><hr><div class="c">Thank you for shopping with us!</div>';
+}
+function printReceipt(){ if(!S.lastSale){ toast('No receipt to print yet'); return; } printHTML(receiptPrintHTML(S.lastSale)); }
+function printSaleReceipt(id){ var s=null; S.sales.forEach(function(x){ if(x.id===id) s=x; }); if(!s){ toast('Receipt not found'); return; } printHTML(receiptPrintHTML(s)); }
+function printCustomerReceipt(custId){
+  var list=S.sales.filter(function(x){ return x.custId===custId; });
+  if(!list.length){ toast('No receipt to print yet'); return; }
+  printHTML(receiptPrintHTML(list[0]));
+}
+function printCustomerStatement(custId){
+  var c=custById(custId); if(!c){ toast('Customer not found'); return; }
+  var led=customerLedger(custId);
+  var rows=led.map(function(l){ return '<tr><td>'+esc(l.desc)+'<br><span class="small">'+tstr(l.ts)+'</span></td><td class="num">'+(l.type==='due'?'+':'-')+' '+fmt(l.amt)+'</td></tr>'; }).join('');
+  var html='<h4>'+esc(S.shop.name)+'</h4><div class="c small">'+esc(S.shop.address)+'<br>'+esc(S.shop.phone)+'</div><hr>'
+    +'<div>Customer Statement<br>'+esc(c.name)+' &nbsp;·&nbsp; '+esc(c.phone||'')+'<br>'+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+'</div><hr>'
+    +'<table><tr><th>Entry</th><th class="num">Amount</th></tr>'+(rows||'<tr><td colspan="2">No ledger entries yet.</td></tr>')+'</table><hr>'
+    +'<div><b>Outstanding Due: '+fmt(c.due)+'</b></div><hr><div class="c">Thank you!</div>';
+  printHTML(html);
+}
+
+/* ---------- Google sign-in ---------- */
+function googleLogin(btn){
+  press(btn,'Signing in…');
+  var provider=new GoogleAuthProvider();
+  signInWithPopup(auth, provider).then(function(cred){
+    return getOrCreateProfile(cred.user, cred.user.displayName||'');
+  }).then(function(){ /* onAuthStateChanged routes to shop setup / dashboard */ }).catch(function(e){
+    unpress(btn);
+    var c=(e&&e.code)||'';
+    if(c.indexOf('unauthorized-domain')>=0) toast('Google sign-in needs the site domain added in Firebase console — ask the owner');
+    else if(c.indexOf('popup-closed-by-user')>=0) toast('Google sign-in cancelled');
+    else if(c.indexOf('popup-blocked')>=0) toast('Popup blocked — allow popups for this site');
+    else toast(authErrorMessage(e));
+  });
+}
+
+/* ---------- payment screenshot ---------- */
+function openScreenshotPicker(){ var inp=$('pm_shot'); if(inp) inp.click(); }
+function attachScreenshot(input){
+  var f=input && input.files && input.files[0];
+  if(!f) return;
+  if(f.size>10*1024*1024){ toast('Image is too large (max 10 MB)'); input.value=''; return; }
+  if(f.type.indexOf('image/')!==0){ toast('Please choose an image file'); input.value=''; return; }
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    var img=new Image();
+    img.onload=function(){
+      var maxW=800, w=img.width, h=img.height;
+      if(w>maxW){ h=Math.round(h*maxW/w); w=maxW; }
+      var cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      S.payScreenshot=cv.toDataURL('image/jpeg',0.7);
+      render();
+      toast('Screenshot attached');
+    };
+    img.onerror=function(){ toast('Could not read that image'); };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(f);
+  input.value='';
+}
+function viewScreenshot(id){ var rec=null; S.adminPayments.forEach(function(p){ if(p.id===id) rec=p; }); if(!rec||!rec.screenshot){ toast('No screenshot attached'); return; } openModal('<h3>Payment Screenshot</h3><img src="'+rec.screenshot+'" style="width:100%;border-radius:14px;margin-top:8px;"><button class="btn ghost block" style="margin-top:12px;" onclick="closeModal()">Close</button>'); }
+
+/* ---------- change password ---------- */
+function changePasswordPrompt(){
+  openModal('<h3>🔑 Change Password</h3>'
+    +'<label>Current password</label><input id="cp_cur" type="password" placeholder="Current password">'
+    +'<label>New password</label><input id="cp_new" type="password" placeholder="At least 6 characters">'
+    +'<button class="btn emerald block" style="margin-top:14px;" onclick="changePassword(this)">Change Password</button>'
+    +'<button class="btn ghost block" style="margin-top:8px;" onclick="closeModal()">Cancel</button>');
+}
+function changePassword(btn){
+  var cur=$('cp_cur').value, nw=$('cp_new').value;
+  if(nw.length<6){ toast('New password must be at least 6 characters'); return; }
+  var user=auth.currentUser;
+  if(!user){ toast('Please log in again'); return; }
+  var providers=(user.providerData||[]).map(function(p){ return p.providerId; });
+  if(providers.indexOf('password')<0){ toast('Your account uses Google sign-in — change the password in your Google account'); return; }
+  press(btn,'Changing…');
+  var cred=EmailAuthProvider.credential(user.email, cur);
+  reauthenticateWithCredential(user, cred).then(function(){
+    return updatePassword(user, nw);
+  }).then(function(){ unpress(btn); closeModal(); toast('Password changed'); }).catch(function(e){
+    unpress(btn);
+    var c=(e&&e.code)||'';
+    if(c.indexOf('wrong-password')>=0||c.indexOf('invalid-credential')>=0) toast('Current password is wrong');
+    else if(c.indexOf('requires-recent-login')>=0) toast('Please log out and log in again, then change password');
+    else toast(authErrorMessage(e));
+  });
+}
+
 function openModal(html){ $('modalBox').innerHTML=html; $('modalWrap').classList.add('show'); }
 function closeModal(){ $('modalWrap').classList.remove('show'); }
 function go(screen){ S.screen=screen; S.notifOpen=false; render(); var sc=document.querySelector('.scroll'); if(sc) sc.scrollTop=0; window.scrollTo(0,0); }
@@ -382,10 +579,10 @@ function downloadFile(name, content, type){ var blob=new Blob([content],{type:ty
 function csvCell(v){ v=String(v==null?'':v); return /[",\n]/.test(v)? '"'+v.replace(/"/g,'""')+'"' : v; }
 function csvDownload(name, header, rows){ var lines=[header.map(csvCell).join(',')]; rows.forEach(function(r){ lines.push(r.map(csvCell).join(',')); }); downloadFile(name, lines.join('\n'), 'text/csv;charset=utf-8'); }
 function authErrorMessage(e){ var c=(e&&e.code)||''; if(c.indexOf('user-not-found')>=0||c.indexOf('wrong-password')>=0||c.indexOf('invalid-credential')>=0) return 'Wrong email or password'; if(c.indexOf('invalid-email')>=0) return 'Enter a valid email address'; if(c.indexOf('email-already-in-use')>=0) return 'An account with this email already exists'; if(c.indexOf('weak-password')>=0) return 'Password must be at least 6 characters'; if(c.indexOf('too-many-requests')>=0) return 'Too many attempts — try again later'; if(c.indexOf('network-request-failed')>=0) return 'No connection — check your internet and try again'; return (e&&e.message)||'Something went wrong — try again'; }
-function exportSalesCSV(){ var f=S.reportFilter; var maxOff=f==='7'?6:f==='30'?29:0; var list=salesIn(0,maxOff); csvDownload('shopflow-sales-'+todayStr()+'.csv', ['Invoice','Date','Customer','Payment','Items','Subtotal','Discount','Tax','Total','Paid','Due'], list.map(function(s){ return [s.inv, new Date(s.ts).toISOString().slice(0,10), s.cust, s.pay, s.items.map(function(it){ return it.name+' x '+it.qty; }).join('; '), Math.round(s.subtotal), Math.round(s.disc), Math.round(s.tax), Math.round(s.total), Math.round(s.paid), Math.round(s.total-s.paid)]; })); toast('Sales CSV downloaded'); }
-function exportProductsCSV(){ csvDownload('shopflow-products-'+todayStr()+'.csv', ['Name','SKU','Barcode','Category','Brand','Unit','Purchase Price','Sale Price','Stock','Min Stock','Expiry','Status'], S.products.map(function(p){ return [p.name,p.sku,p.barcode,p.cat,p.brand,p.unit,p.buy,p.sell,p.stock,p.min,p.expiry,p.status]; })); toast('Products CSV downloaded'); }
-function exportCustomersCSV(){ csvDownload('shopflow-customers-'+todayStr()+'.csv', ['Name','Phone','Email','Address','Due','Credit Limit'], S.customers.map(function(c){ return [c.name,c.phone,c.email,c.address,c.due,c.creditLimit]; })); toast('Customers CSV downloaded'); }
-function downloadBackup(){ var data={shop:S.shop, exportedAt:isoNow(), categories:S.categories, products:S.products, customers:S.customers, suppliers:S.suppliers, sales:S.sales, purchases:S.purchases, expenses:S.expenses, movements:S.movements, employees:S.employees, paymentRecords:S.myPayments}; downloadFile('shopflow-backup-'+todayStr()+'.json', JSON.stringify(data,null,2), 'application/json'); toast('Backup downloaded'); }
+function exportSalesCSV(btn){ press(btn,'Preparing…'); var f=S.reportFilter; var maxOff=f==='7'?6:f==='30'?29:0; var list=salesIn(0,maxOff); csvDownload('shopflow-sales-'+todayStr()+'.csv', ['Invoice','Date','Customer','Payment','Items','Subtotal','Discount','Tax','Total','Paid','Due'], list.map(function(s){ return [s.inv, new Date(s.ts).toISOString().slice(0,10), s.cust, s.pay, s.items.map(function(it){ return it.name+' x '+it.qty; }).join('; '), Math.round(s.subtotal), Math.round(s.disc), Math.round(s.tax), Math.round(s.total), Math.round(s.paid), Math.round(s.total-s.paid)]; })); unpress(btn); toast('Sales CSV downloaded'); }
+function exportProductsCSV(btn){ press(btn,'Preparing…'); csvDownload('shopflow-products-'+todayStr()+'.csv', ['Name','SKU','Barcode','Category','Brand','Unit','Purchase Price','Sale Price','Stock','Min Stock','Expiry','Status'], S.products.map(function(p){ return [p.name,p.sku,p.barcode,p.cat,p.brand,p.unit,p.buy,p.sell,p.stock,p.min,p.expiry,p.status]; })); unpress(btn); toast('Products CSV downloaded'); }
+function exportCustomersCSV(btn){ press(btn,'Preparing…'); csvDownload('shopflow-customers-'+todayStr()+'.csv', ['Name','Phone','Email','Address','Due','Credit Limit'], S.customers.map(function(c){ return [c.name,c.phone,c.email,c.address,c.due,c.creditLimit]; })); unpress(btn); toast('Customers CSV downloaded'); }
+function downloadBackup(btn){ press(btn,'Preparing…'); var data={shop:S.shop, exportedAt:isoNow(), categories:S.categories, products:S.products, customers:S.customers, suppliers:S.suppliers, sales:S.sales, purchases:S.purchases, expenses:S.expenses, movements:S.movements, employees:S.employees, paymentRecords:S.myPayments}; downloadFile('shopflow-backup-'+todayStr()+'.json', JSON.stringify(data,null,2), 'application/json'); unpress(btn); toast('Backup downloaded'); }
 
 /* ================= LAYOUT ================= */
 var NAV=[['dashboard','🏠','Home'],['pos','🧾','POS'],['products','📦','Products'],['reports','📊','Reports'],['profile','👤','Profile']];
@@ -427,31 +624,34 @@ function vLogin(){
   if(reg) h+='<label>Your name</label><input id="au_name" placeholder="e.g. Muhammad Aslam">';
   h+='<label>Email</label><input id="au_email" type="email" placeholder="you@example.com">';
   h+='<label>Password</label><input id="au_pass" type="password" placeholder="••••••••">';
-  if(!reg) h+='<div style="text-align:right;"><button class="link" onclick="forgotPassword()">Forgot password?</button></div>';
-  h+='<button class="btn block" style="margin-top:10px;" id="authBtn" onclick="doLogin()">'+(reg?'Create Account':'Login')+'</button>';
+  if(!reg) h+='<div style="text-align:right;"><button class="link" onclick="forgotPassword(this)">Forgot password?</button></div>';
+  h+='<button class="btn block" style="margin-top:10px;" id="authBtn" onclick="doLogin(this)">'+(reg?'Create Account':'Login')+'</button>';
   h+='<div class="divider">or</div>';
-  h+='<button class="google-btn" onclick="toast(\'Google sign-in comes with the real app\')">G&nbsp; Continue with Google</button>';
+  h+='<button class="google-btn" onclick="googleLogin(this)">G&nbsp; Continue with Google</button>';
   h+='</div><div style="height:30px;"></div>';
   return '<div class="scroll no-nav" style="padding:0;">'+h+'</div>';
 }
 function setAuth(m){ S.authMode=m; render(); }
-function forgotPassword(){
+function forgotPassword(btn){
   var em=($('au_email')||{}).value ? $('au_email').value.trim() : '';
   if(!em){ toast('Enter your email first, then tap Forgot password'); return; }
-  sendPasswordResetEmail(auth, em).then(function(){ toast('Password reset email sent — check your inbox'); }).catch(function(e){ toast(authErrorMessage(e)); });
+  press(btn,'Sending…');
+  sendPasswordResetEmail(auth, em).then(function(){ unpress(btn); toast('Password reset email sent — check your inbox'); }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); });
 }
-function doLogin(){
+function doLogin(btn){
   var em=$('au_email').value.trim();
   var pw=$('au_pass').value;
   if(!em || pw.length<6){ toast('Enter an email and a password (6+ characters)'); return; }
-  var btn=$('authBtn'); if(btn){ btn.disabled=true; btn.textContent='Please wait…'; }
+  btn=btn||$('authBtn');
   if(S.authMode==='register'){
     var nm=($('au_name')||{}).value ? $('au_name').value.trim() : '';
+    press(btn,'Creating…');
     createUserWithEmailAndPassword(auth, em, pw).then(function(cred){
       return getOrCreateProfile(cred.user, nm||em.split('@')[0]);
-    }).then(function(){ toast('Account created — set up your shop'); }).catch(function(e){ toast(authErrorMessage(e)); if(btn){ btn.disabled=false; btn.textContent='Create Account'; } });
+    }).then(function(){ toast('Account created — set up your shop'); }).catch(function(e){ toast(authErrorMessage(e)); unpress(btn); });
   } else {
-    signInWithEmailAndPassword(auth, em, pw).catch(function(e){ toast(authErrorMessage(e)); if(btn){ btn.disabled=false; btn.textContent='Login'; } });
+    press(btn,'Logging in…');
+    signInWithEmailAndPassword(auth, em, pw).catch(function(e){ toast(authErrorMessage(e)); unpress(btn); });
   }
 }
 function getOrCreateProfile(fbUser, displayName){
@@ -466,7 +666,7 @@ function getOrCreateProfile(fbUser, displayName){
 function updateUserShopId(shopId){ return updateDoc(doc(db,'users',S.user.uid), {shopId:shopId, updatedAt:serverTimestamp()}); }
 function initAuth(){
   onAuthStateChanged(auth, function(fbUser){
-    if(!fbUser){ stopListeners(); S.user=null; S.profile=null; S.shopId=''; S.shop=defaultShop(); S.isSuperAdmin=false; S.plan='free'; S.subscription=null; S.categories=[]; S.products=[]; S.customers=[]; S.suppliers=[]; S.sales=[]; S.purchases=[]; S.expenses=[]; S.movements=[]; S.employees=[]; S.custPayments=[]; S.myPayments=[]; S.adminPayments=[]; S.adminShops=[]; S.adminUsers=[]; S.adminSubs=[]; S.cart=[]; S.loading=false; S.screen='login'; render(); return; }
+    if(!fbUser){ stopListeners(); S.user=null; S.profile=null; S.shopId=''; S.shop=defaultShop(); S.isSuperAdmin=false; S.plan='free'; S.subscription=null; S.categories=[]; S.products=[]; S.customers=[]; S.suppliers=[]; S.sales=[]; S.purchases=[]; S.expenses=[]; S.movements=[]; S.employees=[]; S.custPayments=[]; S.myPayments=[]; S.adminPayments=[]; S.adminShops=[]; S.adminUsers=[]; S.adminSubs=[]; S.cart=[]; S.payScreenshot=''; S.loading=false; S.screen='login'; render(); return; }
     S.isSuperAdmin=SUPER_ADMIN_EMAILS.indexOf(fbUser.email||'')>=0;
     S.user={uid:fbUser.uid, name:fbUser.displayName||'', email:fbUser.email||''};
     getOrCreateProfile(fbUser, fbUser.displayName||'').then(function(profile){
@@ -490,19 +690,20 @@ function vSetup(){
     +'<div><label>Tax %</label><input id="su_tax" type="number" value="'+S.shop.tax+'"></div></div>'
     +'<label>Phone</label><input id="su_phone" placeholder="03xx xxxxxxx" value="'+esc(S.shop.phone)+'">'
     +'<label>Address</label><input id="su_addr" placeholder="Shop address" value="'+esc(S.shop.address)+'">'
-    +'<button class="btn emerald block" style="margin-top:16px;" onclick="launchShop()">🚀 Launch My Store</button>'
+    +'<button class="btn emerald block" style="margin-top:16px;" onclick="launchShop(this)">🚀 Launch My Store</button>'
     +'<p class="muted" style="text-align:center;margin-top:10px;">Your data stays separate from other shops on ShopFlow.</p></div>';
   return shell(h+pad(inner),'');
 }
-function launchShop(){
+function launchShop(btn){
   var name=$('su_name').value.trim();
   if(!name){ toast('Enter your store name'); return; }
   var category=$('su_cat').value;
   var tax=num($('su_tax').value);
   var phone=$('su_phone').value.trim();
   var address=$('su_addr').value.trim();
+  press(btn, S.shopId?'Saving…':'Launching…');
   if(S.shopId){
-    updateDoc(doc(db,'shops',S.shopId), {name:name, category:category, phone:phone, address:address, taxRate:tax, updatedAt:serverTimestamp()}).then(function(){ toast('Shop updated'); go('dashboard'); }).catch(function(e){ toast(authErrorMessage(e)); });
+    updateDoc(doc(db,'shops',S.shopId), {name:name, category:category, phone:phone, address:address, taxRate:tax, updatedAt:serverTimestamp()}).then(function(){ toast('Shop updated'); go('dashboard'); }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); });
     return;
   }
   var shopId=rid('shop_',12);
@@ -513,7 +714,7 @@ function launchShop(){
     S.shopId=shopId; S.loading=true; attachShopListeners();
     toast('Welcome to '+name+' 🎉');
     setTimeout(function(){ if(S.loading){ S.loading=false; S.screen='dashboard'; render(); } }, 8000);
-  }).catch(function(e){ toast(authErrorMessage(e)); });
+  }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); });
 }
 
 /* ================= DASHBOARD ================= */
@@ -637,7 +838,7 @@ function cartHTML(){
     h+='<label>Cash received (Rs)</label><input type="number" id="cashAmt" placeholder="e.g. 1000" oninput="updChange('+t.grand+')">';
     h+='<div class="tot-row"><span>Change to return</span><span class="bold pos" id="changeOut">—</span></div>';
   }
-  h+='<button class="btn emerald block" style="margin-top:12px;" onclick="completeSale()">✅ Complete Sale</button></div>';
+  h+='<button class="btn emerald block" style="margin-top:12px;" onclick="completeSale(this)">✅ Complete Sale</button></div>';
   return h;
 }
 function updChange(grand){ var v=parseFloat($('cashAmt').value)||0; $('changeOut').textContent = v>=grand? fmt(v-grand) : (v>0?'Need '+fmt(grand-v)+' more':'—'); }
@@ -654,7 +855,7 @@ function chgQty(i,d){ var ci=S.cart[i]; var p=prod(ci.id); ci.qty+=d;
 }
 function removeCart(i){ S.cart.splice(i,1); render(); }
 function setItemDisc(i,v){ S.cart[i].disc=Math.min(100,Math.max(0,parseFloat(v)||0)); render(); }
-function completeSale(){
+function completeSale(btn){
   if(!S.cart.length){ toast('Cart is empty'); return; }
   if(!S.shop.allowCredit && (S.payType==='Partial'||S.payType==='Credit')){ toast('Credit sales are turned off in Settings'); return; }
   for(var ci0=0; ci0<S.cart.length; ci0++){ var pp0=prod(S.cart[ci0].id); if(pp0 && !S.shop.allowNegStock && S.cart[ci0].qty>pp0.stock){ toast('Only '+pp0.stock+' in stock for '+pp0.name); return; } }
@@ -669,6 +870,7 @@ function completeSale(){
   var payMethod=(S.payType==='Credit')?'credit':'cash';
   var payStatus=(S.payType==='Cash')?'paid':(S.payType==='Partial'?'partial':'unpaid');
   var due=t.grand-paid;
+  press(btn,'Processing…');
   var saleId=rid('sale_',10);
   var inv='';
   var items=S.cart.map(function(ci){ var p=prod(ci.id); return {productId:p.id, productName:p.name, quantity:ci.qty, unitPrice:p.sell, totalPrice:p.sell*ci.qty*(1-(ci.disc||0)/100), cost:p.buy*ci.qty, disc:ci.disc||0}; });
@@ -700,7 +902,7 @@ function completeSale(){
   }).then(function(){
     var sale={id:saleId, inv:inv, ts:Date.now(), off:0, items:items.map(function(it){ return {name:it.productName, qty:it.quantity, price:it.unitPrice, cost:it.cost, disc:it.disc}; }), total:t.grand, cost:t.cost, cust:cust?cust.name:'Walk-in', pay:S.payType, disc:t.discAmt, tax:t.tax, paid:paid};
     S.cart=[]; S.invDisc=0; S.paidAmt=''; S.lastSale=sale; go('receipt');
-  }).catch(function(e){ toast(e&&e.message?e.message:'Sale failed — try again'); });
+  }).catch(function(e){ unpress(btn); toast(e&&e.message?e.message:'Sale failed — try again'); });
 }
 function vReceipt(){
   var s=S.lastSale; if(!s) return vDashboard();
@@ -713,8 +915,8 @@ function vReceipt(){
     +(s.disc?'<div>Discount: − '+fmt(s.disc)+'</div>':'')
     +'<div>Tax: '+fmt(s.tax||0)+'</div><div><b>Grand Total: '+fmt(s.total)+'</b></div>'
     +'<div>Paid: '+fmt(s.paid)+' &nbsp; Due: '+fmt(s.total-s.paid)+'</div><hr><div class="c">Thank you for shopping with us!</div></div>';
-  var inner=r+'<div class="grid2" style="margin-top:14px;"><button class="btn ghost" onclick="toast(\'Printing is available in the real app\')">🖨️ Print</button>'
-    +'<button class="btn ghost" onclick="toast(\'PDF download is available in the real app\')">⬇️ PDF</button></div>'
+  var inner=r+'<div class="grid2" style="margin-top:14px;"><button class="btn ghost" onclick="printReceipt()">🖨️ Print</button>'
+    +'<button class="btn ghost" onclick="downloadReceiptPDF(this)">⬇️ PDF</button></div>'
     +'<button class="btn block" style="margin-top:10px;" onclick="go(\'pos\')">New Sale</button>'
     +'<button class="btn ghost block" style="margin-top:8px;" onclick="go(\'dashboard\')">Back to Dashboard</button>';
   return shell(h+pad(inner),'pos');
@@ -753,13 +955,13 @@ function editProduct(id){
     +'<div class="grid2"><div><label>'+(id?'Current stock':'Opening stock')+'</label><input id="pf_stock" type="number" value="'+p.stock+'"></div><div><label>Minimum stock</label><input id="pf_min" type="number" value="'+p.min+'"></div></div>'
     +'<div class="grid2"><div><label>Expiry date (optional)</label><input id="pf_exp" type="date" value="'+esc(p.expiry||'')+'"></div>'
     +'<div><label>Status</label><select id="pf_status"><option'+(p.status==='Active'?' selected':'')+'>Active</option><option'+(p.status==='Archived'?' selected':'')+'>Archived</option></select></div></div>'
-    +'<button class="btn emerald block" style="margin-top:16px;" onclick="saveProduct()">💾 Save Product</button>'
+    +'<button class="btn emerald block" style="margin-top:16px;" onclick="saveProduct(this)">💾 Save Product</button>'
     +(id?'<button class="btn ghost block" style="margin-top:8px;" onclick="adjustStockPrompt(\''+id+'\')">🔧 Stock Adjustment</button>'
-        +'<button class="btn danger block" style="margin-top:8px;" onclick="archiveProduct(\''+id+'\')">Archive Product</button>':'')
+        +'<button class="btn danger block" style="margin-top:8px;" onclick="archiveProduct(\''+id+'\',this)\">Archive Product</button>':'')
     +'</div>';
   return shell(h+pad(inner),'products');
 }
-function saveProduct(){
+function saveProduct(btn){
   var name=$('pf_name').value.trim(); if(!name){ toast('Product name is required'); return; }
   var sku=$('pf_sku').value.trim()||('SKU-'+rid('',6).toUpperCase());
   var dup=S.products.some(function(p){ return p.id!==S.editProdId && sku && p.sku===sku; });
@@ -770,6 +972,7 @@ function saveProduct(){
   if(data.salePrice<0){ toast('Selling price cannot be negative'); return; }
   var newStock=num($('pf_stock').value);
   if(newStock<0){ toast('Stock cannot be negative'); return; }
+  press(btn,'Saving…');
   if(S.editProdId){
     var p=prod(S.editProdId);
     var oldStock=p?p.stock:0;
@@ -779,7 +982,7 @@ function saveProduct(){
         var delta=newStock-oldStock;
         return setDoc(doc(db,'shops',S.shopId,'inventory_transactions',rid('tx_',10)), {shopId:S.shopId, productId:S.editProdId, productName:data.name, type:delta>=0?'in':'out', quantityChange:delta, previousStock:oldStock, newStock:newStock, reason:'Manual edit', performedBy:S.user.name||'Owner', createdAt:serverTimestamp()});
       }
-    }).then(function(){ toast('Product updated'); go('products'); }).catch(function(e){ toast(authErrorMessage(e)); });
+    }).then(function(){ toast('Product updated'); go('products'); }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); });
   } else {
     var prodId=rid('prod_',8);
     var payload2={shopId:S.shopId, name:data.name, barcode:data.barcode, sku:data.sku, categoryId:data.categoryId, categoryName:data.categoryName, supplierId:'', purchasePrice:data.purchasePrice, salePrice:data.salePrice, quantity:newStock, minStockAlert:data.minStockAlert, unit:data.unit, expiryDate:data.expiryDate, imageUrl:'', status:data.status, createdAt:serverTimestamp(), updatedAt:serverTimestamp()};
@@ -787,26 +990,27 @@ function saveProduct(){
       if(newStock>0){
         return setDoc(doc(db,'shops',S.shopId,'inventory_transactions',rid('tx_',10)), {shopId:S.shopId, productId:prodId, productName:data.name, type:'in', quantityChange:newStock, previousStock:0, newStock:newStock, reason:'Opening stock', performedBy:S.user.name||'Owner', createdAt:serverTimestamp()});
       }
-    }).then(function(){ toast('Product added'); go('products'); }).catch(function(e){ toast(authErrorMessage(e)); });
+    }).then(function(){ toast('Product added'); go('products'); }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); });
   }
 }
-function archiveProduct(id){ updateDoc(doc(db,'shops',S.shopId,'products',id), {status:'Archived', updatedAt:serverTimestamp()}).then(function(){ toast('Product archived'); go('products'); }).catch(function(e){ toast(authErrorMessage(e)); }); }
+function archiveProduct(id, btn){ press(btn,'Archiving…'); updateDoc(doc(db,'shops',S.shopId,'products',id), {status:'Archived', updatedAt:serverTimestamp()}).then(function(){ toast('Product archived'); go('products'); }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); }); }
 function adjustStockPrompt(id){
   var p=prod(id);
   openModal('<h3>🔧 Stock Adjustment — '+esc(p.name)+'</h3><p class="muted">Current stock: <b>'+p.stock+'</b></p>'
     +'<label>New stock quantity</label><input id="adj_qty" type="number" value="'+p.stock+'">'
     +'<label>Reason</label><select id="adj_reason"><option>Damaged</option><option>Expired</option><option>Returned</option><option>Stock count correction</option><option>Other</option></select>'
-    +'<button class="btn emerald block" style="margin-top:14px;" onclick="saveAdjustment(\''+id+'\')">Save Adjustment</button>'
+    +'<button class="btn emerald block" style="margin-top:14px;" onclick="saveAdjustment(\''+id+'\',this)\">Save Adjustment</button>'
     +'<button class="btn ghost block" style="margin-top:8px;" onclick="closeModal()">Cancel</button>');
 }
-function saveAdjustment(id){
+function saveAdjustment(id, btn){
   var p=prod(id); if(!p){ closeModal(); return; }
   var nq=num($('adj_qty').value); var reason=$('adj_reason').value;
   if(nq<0){ toast('Stock cannot be negative'); return; }
+  press(btn,'Saving…');
   var delta=nq-p.stock;
   updateDoc(doc(db,'shops',S.shopId,'products',id), {quantity:nq, updatedAt:serverTimestamp()}).then(function(){
     return setDoc(doc(db,'shops',S.shopId,'inventory_transactions',rid('tx_',10)), {shopId:S.shopId, productId:id, productName:p.name, type:delta>=0?'in':'out', quantityChange:delta, previousStock:p.stock, newStock:nq, reason:reason, performedBy:S.user.name||'Owner', createdAt:serverTimestamp()});
-  }).then(function(){ closeModal(); toast('Stock adjusted'); go('products'); }).catch(function(e){ toast(authErrorMessage(e)); });
+  }).then(function(){ closeModal(); toast('Stock adjusted'); go('products'); }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); });
 }
 
 /* ================= CATEGORIES ================= */
@@ -818,25 +1022,28 @@ function vCategories(){
     +(list.length?list.map(function(c){ var n=S.products.filter(function(p){return p.cat===c.name;}).length;
       return '<div class="list-item"><div class="thumb">🗂️</div><div class="grow"><div class="bold">'+esc(c.name)+'</div><div class="muted">'+n+' products</div></div>'
         +'<button class="btn sm ghost" onclick="renameCat(\''+c.id+'\')">Edit</button>'
-        +'<button class="btn sm danger" onclick="deleteCat(\''+c.id+'\')">Delete</button></div>'; }).join(''):'<div class="empty">No categories found.</div>')
-    +'</div><div class="card"><h3>➕ Add category</h3><label>Category name</label><input id="cat_name" placeholder="e.g. Beverages"><button class="btn emerald block" style="margin-top:12px;" onclick="addCat()">Add Category</button></div>';
+        +'<button class="btn sm danger" onclick="deleteCat(\''+c.id+'\',this)\">Delete</button></div>'; }).join(''):'<div class="empty">No categories found.</div>')
+    +'</div><div class="card"><h3>➕ Add category</h3><label>Category name</label><input id="cat_name" placeholder="e.g. Beverages"><button class="btn emerald block" style="margin-top:12px;" onclick="addCat(this)">Add Category</button></div>';
   return shell(h+pad(inner),'');
 }
-function addCat(){ var n=$('cat_name').value.trim(); if(!n){ toast('Enter a category name'); return; }
+function addCat(btn){ var n=$('cat_name').value.trim(); if(!n){ toast('Enter a category name'); return; }
   if(S.categories.some(function(c){return c.name.toLowerCase()===n.toLowerCase();})){ toast('Category already exists'); return; }
-  setDoc(doc(db,'shops',S.shopId,'categories',rid('cat_',8)), {shopId:S.shopId, name:n, description:'', createdAt:serverTimestamp()}).then(function(){ toast('Category added'); render(); }).catch(function(e){ toast(authErrorMessage(e)); }); }
+  press(btn,'Adding…');
+  setDoc(doc(db,'shops',S.shopId,'categories',rid('cat_',8)), {shopId:S.shopId, name:n, description:'', createdAt:serverTimestamp()}).then(function(){ toast('Category added'); render(); }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); }); }
 function renameCat(id){ var c=null; S.categories.forEach(function(x){ if(x.id===id)c=x; });
-  openModal('<h3>✏️ Rename category</h3><label>Name</label><input id="rc_name" value="'+esc(c.name)+'"><button class="btn emerald block" style="margin-top:14px;" onclick="saveCat(\''+id+'\')">Save</button><button class="btn ghost block" style="margin-top:8px;" onclick="closeModal()">Cancel</button>'); }
-function saveCat(id){ var n=$('rc_name').value.trim(); if(!n) return;
+  openModal('<h3>✏️ Rename category</h3><label>Name</label><input id="rc_name" value="'+esc(c.name)+'"><button class="btn emerald block" style="margin-top:14px;" onclick="saveCat(\''+id+'\',this)\">Save</button><button class="btn ghost block" style="margin-top:8px;" onclick="closeModal()">Cancel</button>'); }
+function saveCat(id, btn){ var n=$('rc_name').value.trim(); if(!n) return;
+  press(btn,'Saving…');
   var batch=writeBatch(db);
   batch.update(doc(db,'shops',S.shopId,'categories',id), {name:n});
   S.products.forEach(function(p){ if(p.catId===id) batch.update(doc(db,'shops',S.shopId,'products',p.id), {categoryName:n, updatedAt:serverTimestamp()}); });
-  batch.commit().then(function(){ closeModal(); toast('Category updated'); render(); }).catch(function(e){ toast(authErrorMessage(e)); }); }
-function deleteCat(id){ var c=null; S.categories.forEach(function(x){ if(x.id===id)c=x; });
+  batch.commit().then(function(){ closeModal(); toast('Category updated'); render(); }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); }); }
+function deleteCat(id, btn){ var c=null; S.categories.forEach(function(x){ if(x.id===id)c=x; });
   if(!c) return;
   var n=S.products.filter(function(p){return p.catId===id;}).length;
   if(n>0){ toast('Cannot delete — '+n+' products use this category. Move them first.'); return; }
-  deleteDoc(doc(db,'shops',S.shopId,'categories',id)).then(function(){ toast('Category deleted'); render(); }).catch(function(e){ toast(authErrorMessage(e)); }); }
+  press(btn,'Deleting…');
+  deleteDoc(doc(db,'shops',S.shopId,'categories',id)).then(function(){ toast('Category deleted'); render(); }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); }); }
 
 /* ================= PURCHASES ================= */
 function vPurchases(){
@@ -868,15 +1075,16 @@ function vPurchaseForm(){
     +'<div><label>Paid amount (Rs)</label><input type="number" id="pur_paid" placeholder="0"></div></div>'
     +'<div style="margin-top:10px;"><div class="tot-row grand"><span>Total</span><span>'+fmt(total)+'</span></div>'
     +'<p class="muted">Remaining amount becomes payable to '+esc((supById(S.purSupplier)||{name:'the supplier'}).name)+'.</p></div>'
-    +'<button class="btn emerald block" onclick="completePurchase('+total+')">✅ Complete Purchase</button></div>';
+    +'<button class="btn emerald block" onclick="completePurchase('+total+',this)">✅ Complete Purchase</button></div>';
   return shell(h+pad(inner),'');
 }
 function setPurProd(i,v){ var p=prod(v); S.purLines[i].prodId=v; if(p) S.purLines[i].price=p.buy; render(); }
 function addPurLine(){ if(!S.products.length){ toast('Add a product first'); return; } S.purLines.push({prodId:S.products[0].id, qty:1, price:S.products[0].buy}); render(); }
-function completePurchase(total){
+function completePurchase(total, btn){
   if(!S.purLines.length){ toast('Add at least one item'); return; }
   total=Math.max(0,total);
   for(var li=0; li<S.purLines.length; li++){ if(!prod(S.purLines[li].prodId)){ toast('Pick a product for every line'); return; } if(!(S.purLines[li].qty>0)){ toast('Quantities must be above 0'); return; } }
+  press(btn,'Processing…');
   var paid=Math.min(total, num(($('pur_paid')||{}).value));
   var sup=supById(S.purSupplier);
   var purId=rid('pur_',10);
@@ -907,7 +1115,7 @@ function completePurchase(total){
         if(sup && remaining>0){ tx.update(doc(db,'shops',S.shopId,'suppliers',sup.id), {balance:increment(remaining)}); }
       });
     });
-  }).then(function(){ toast('Purchase completed — stock updated'); go('purchases'); }).catch(function(e){ toast(e&&e.message?e.message:'Purchase failed — try again'); });
+  }).then(function(){ toast('Purchase completed — stock updated'); go('purchases'); }).catch(function(e){ unpress(btn); toast(e&&e.message?e.message:'Purchase failed — try again'); });
 }
 
 /* ================= INVENTORY ================= */
@@ -947,7 +1155,7 @@ function vSaleDetail(){
     +'<div style="margin-top:8px;"><div class="tot-row"><span>Customer</span><span>'+esc(s.cust)+'</span></div><div class="tot-row"><span>Payment</span><span>'+s.pay+'</span></div>'
     +(s.disc?'<div class="tot-row"><span>Discount</span><span>− '+fmt(s.disc)+'</span></div>':'')
     +'<div class="tot-row"><span>Tax</span><span>'+fmt(s.tax||0)+'</span></div><div class="tot-row grand"><span>Total</span><span>'+fmt(s.total)+'</span></div></div>'
-    +'<button class="btn ghost block" style="margin-top:10px;" onclick="toast(\'Receipt printing is available in the real app\')">🖨️ Print Receipt</button></div>';
+    +'<button class="btn ghost block" style="margin-top:10px;" onclick="printSaleReceipt(\''+s.id+'\')">🖨️ Print Receipt</button></div>';
   return shell(h+pad(inner),'');
 }
 
@@ -960,13 +1168,14 @@ function vCustomers(){
         +(c.due>0?'<span class="badge b-red">Due '+fmt(c.due)+'</span>':'<span class="badge b-green">Clear</span>')
         +'<button class="btn sm ghost" onclick="S.custDetailId=\''+c.id+'\';go(\'customerDetail\')">Open</button></div>';
     }).join('')+'</div>'
-    +'<div class="card"><h3>➕ Add customer</h3><label>Name</label><input id="cu_name" placeholder="Customer name"><label>Phone</label><input id="cu_phone" placeholder="03xx xxxxxxx"><label>Opening balance (Rs)</label><input id="cu_open" type="number" placeholder="0"><button class="btn emerald block" style="margin-top:12px;" onclick="addCustomer()">Add Customer</button></div>';
+    +'<div class="card"><h3>➕ Add customer</h3><label>Name</label><input id="cu_name" placeholder="Customer name"><label>Phone</label><input id="cu_phone" placeholder="03xx xxxxxxx"><label>Opening balance (Rs)</label><input id="cu_open" type="number" placeholder="0"><button class="btn emerald block" style="margin-top:12px;" onclick="addCustomer(this)">Add Customer</button></div>';
   return shell(h+pad(inner),'');
 }
-function addCustomer(){ var n=$('cu_name').value.trim(); if(!n){ toast('Enter a name'); return; }
+function addCustomer(btn){ var n=$('cu_name').value.trim(); if(!n){ toast('Enter a name'); return; }
   var phone=$('cu_phone').value.trim();
   var opening=num($('cu_open').value);
-  setDoc(doc(db,'shops',S.shopId,'customers',rid('cust_',8)), {shopId:S.shopId, name:n, phone:phone, email:'', address:'', balance:opening, creditLimit:500, createdAt:serverTimestamp()}).then(function(){ toast('Customer added'); render(); }).catch(function(e){ toast(authErrorMessage(e)); }); }
+  press(btn,'Adding…');
+  setDoc(doc(db,'shops',S.shopId,'customers',rid('cust_',8)), {shopId:S.shopId, name:n, phone:phone, email:'', address:'', balance:opening, creditLimit:500, createdAt:serverTimestamp()}).then(function(){ toast('Customer added'); render(); }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); }); }
 function vCustomerDetail(){
   var c=null; S.customers.forEach(function(x){ if(x.id===S.custDetailId) c=x; });
   if(!c) return vCustomers();
@@ -974,8 +1183,9 @@ function vCustomerDetail(){
   var led=customerLedger(c.id);
   var bought=S.sales.filter(function(s){ return s.custId===c.id; });
   var inner='<div class="stat-grid"><div class="stat"><div class="lbl">Outstanding Due</div><div class="val red">'+fmt(c.due)+'</div></div><div class="stat"><div class="lbl">Total Purchases</div><div class="val">'+fmt(bought.reduce(function(a,s){return a+s.total;},0))+'</div></div></div>';
-  inner+='<div class="card"><h3>💵 Collect Payment</h3><label>Amount (Rs)</label><input id="cp_amt" type="number" placeholder="0"><button class="btn emerald block" style="margin-top:10px;" onclick="collectPayment(\''+c.id+'\')">Collect Payment</button>'
-    +'<button class="btn ghost block" style="margin-top:8px;" onclick="toast(\'Customer statement printing is available in the real app\')">🧾 Print Statement</button></div>';
+  inner+='<div class="card"><h3>💵 Collect Payment</h3><label>Amount (Rs)</label><input id="cp_amt" type="number" placeholder="0"><button class="btn emerald block" style="margin-top:10px;" onclick="collectPayment(\''+c.id+'\',this)\">Collect Payment</button>'
+    +'<button class="btn ghost block" style="margin-top:8px;" onclick="printCustomerReceipt(\''+c.id+'\')">🖨️ Print Receipt</button>'
+    +'<button class="btn ghost block" style="margin-top:8px;" onclick="printCustomerStatement(\''+c.id+'\')">🧾 Print Statement</button></div>';
   inner+='<div class="card"><h3>📒 Ledger</h3>'
     +(led.length?led.map(function(l){ return '<div class="list-item"><div class="grow"><div class="bold" style="font-size:13.5px;">'+esc(l.desc)+'</div><div class="muted">'+tstr(l.ts)+'</div></div><span class="'+(l.type==='due'?'neg':'pos')+' bold">'+(l.type==='due'?'+':'−')+' '+fmt(l.amt)+'</span></div>'; }).join(''):'<div class="empty">No ledger entries yet.</div>')
     +'</div>';
@@ -984,12 +1194,13 @@ function vCustomerDetail(){
     +'</div>';
   return shell(h+pad(inner),'');
 }
-function collectPayment(id){ var amt=num($('cp_amt').value); if(amt<=0){ toast('Enter an amount'); return; }
+function collectPayment(id, btn){ var amt=num($('cp_amt').value); if(amt<=0){ toast('Enter an amount'); return; }
   var c=custById(id); if(!c){ toast('Customer not found'); return; }
   amt=Math.min(amt,c.due);
+  press(btn,'Processing…');
   updateDoc(doc(db,'shops',S.shopId,'customers',id), {balance:increment(-amt)}).then(function(){
     return setDoc(doc(db,'shops',S.shopId,'customerPayments',rid('pay_',10)), {shopId:S.shopId, customerId:id, amount:amt, type:'pay', desc:'Payment collected', recordedBy:S.user.name||'Owner', createdAt:serverTimestamp()});
-  }).then(function(){ toast('Payment collected — due updated'); render(); }).catch(function(e){ toast(authErrorMessage(e)); }); }
+  }).then(function(){ toast('Payment collected — due updated'); render(); }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); }); }
 
 /* ================= SUPPLIERS ================= */
 function vSuppliers(){
@@ -1000,28 +1211,30 @@ function vSuppliers(){
         +(s.payable>0?'<span class="badge b-red">Payable '+fmt(s.payable)+'</span>':'<span class="badge b-green">Clear</span>')
         +'<button class="btn sm ghost" onclick="S.supDetailId=\''+s.id+'\';go(\'supplierDetail\')">Open</button></div>';
     }).join('')+'</div>'
-    +'<div class="card"><h3>➕ Add supplier</h3><label>Name</label><input id="sp_name" placeholder="Supplier / company name"><label>Phone</label><input id="sp_phone" placeholder="03xx xxxxxxx"><button class="btn emerald block" style="margin-top:12px;" onclick="addSupplier()">Add Supplier</button></div>';
+    +'<div class="card"><h3>➕ Add supplier</h3><label>Name</label><input id="sp_name" placeholder="Supplier / company name"><label>Phone</label><input id="sp_phone" placeholder="03xx xxxxxxx"><button class="btn emerald block" style="margin-top:12px;" onclick="addSupplier(this)">Add Supplier</button></div>';
   return shell(h+pad(inner),'');
 }
-function addSupplier(){ var n=$('sp_name').value.trim(); if(!n){ toast('Enter a name'); return; }
+function addSupplier(btn){ var n=$('sp_name').value.trim(); if(!n){ toast('Enter a name'); return; }
   var phone=$('sp_phone').value.trim();
-  setDoc(doc(db,'shops',S.shopId,'suppliers',rid('sup_',8)), {shopId:S.shopId, name:n, company:'', phone:phone, email:'', address:'', balance:0, createdAt:serverTimestamp()}).then(function(){ toast('Supplier added'); render(); }).catch(function(e){ toast(authErrorMessage(e)); }); }
+  press(btn,'Adding…');
+  setDoc(doc(db,'shops',S.shopId,'suppliers',rid('sup_',8)), {shopId:S.shopId, name:n, company:'', phone:phone, email:'', address:'', balance:0, createdAt:serverTimestamp()}).then(function(){ toast('Supplier added'); render(); }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); }); }
 function vSupplierDetail(){
   var s=null; S.suppliers.forEach(function(x){ if(x.id===S.supDetailId) s=x; });
   if(!s) return vSuppliers();
   var h=topbar(s.name, s.phone,'suppliers');
   var pur=S.purchases.filter(function(p){ return p.supplierId===s.id; });
   var inner='<div class="stat-grid"><div class="stat"><div class="lbl">Total Payable</div><div class="val red">'+fmt(s.payable)+'</div></div><div class="stat"><div class="lbl">Purchases</div><div class="val">'+pur.length+'</div></div></div>';
-  inner+='<div class="card"><h3>💵 Record Payment</h3><label>Amount (Rs)</label><input id="spay_amt" type="number" placeholder="0"><button class="btn emerald block" style="margin-top:10px;" onclick="paySupplier(\''+s.id+'\')">Record Payment</button></div>';
+  inner+='<div class="card"><h3>💵 Record Payment</h3><label>Amount (Rs)</label><input id="spay_amt" type="number" placeholder="0"><button class="btn emerald block" style="margin-top:10px;" onclick="paySupplier(\''+s.id+'\',this)\">Record Payment</button></div>';
   inner+='<div class="card"><h3>🚚 Purchase history</h3>'
     +(pur.length?pur.map(function(p){ return '<div class="list-item"><div class="grow"><div class="bold" style="font-size:13.5px;">Purchase #'+p.inv+'</div><div class="muted">'+tstr(p.ts)+' · paid '+fmt(p.paid)+'</div></div><div class="price">'+fmt(p.total)+'</div></div>'; }).join(''):'<div class="empty">No purchases from this supplier yet.</div>')
     +'</div>';
   return shell(h+pad(inner),'');
 }
-function paySupplier(id){ var amt=num($('spay_amt').value); if(amt<=0){ toast('Enter an amount'); return; }
+function paySupplier(id, btn){ var amt=num($('spay_amt').value); if(amt<=0){ toast('Enter an amount'); return; }
   var s=supById(id); if(!s){ toast('Supplier not found'); return; }
   amt=Math.min(amt,s.payable);
-  updateDoc(doc(db,'shops',S.shopId,'suppliers',id), {balance:increment(-amt)}).then(function(){ toast('Payment recorded — payable updated'); render(); }).catch(function(e){ toast(authErrorMessage(e)); }); }
+  press(btn,'Processing…');
+  updateDoc(doc(db,'shops',S.shopId,'suppliers',id), {balance:increment(-amt)}).then(function(){ toast('Payment recorded — payable updated'); render(); }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); }); }
 
 /* ================= EXPENSES ================= */
 function vExpenses(){
@@ -1035,11 +1248,12 @@ function vExpenses(){
   inner+='<div class="card"><h3>➕ Add expense</h3><label>Category</label><select id="ex_cat"><option>Rent</option><option>Utilities</option><option>Salaries</option><option>Transport</option><option>Packaging</option><option>Other</option></select>'
     +'<div class="grid2"><div><label>Amount (Rs)</label><input id="ex_amt" type="number" placeholder="0"></div><div><label>Payment method</label><select id="ex_method"><option>Cash</option><option>Bank</option><option>JazzCash</option><option>EasyPaisa</option></select></div></div>'
     +'<label>Description</label><input id="ex_desc" placeholder="What was it for?">'
-    +'<button class="btn emerald block" style="margin-top:12px;" onclick="addExpense()">Add Expense</button></div>';
+    +'<button class="btn emerald block" style="margin-top:12px;" onclick="addExpense(this)">Add Expense</button></div>';
   return shell(h+pad(inner),'');
 }
-function addExpense(){ var amt=num($('ex_amt').value); if(amt<=0){ toast('Enter an amount'); return; }
-  setDoc(doc(db,'shops',S.shopId,'expenses',rid('exp_',8)), {shopId:S.shopId, category:$('ex_cat').value, amount:amt, description:$('ex_desc').value.trim()||'—', date:todayStr(), method:$('ex_method').value, recordedBy:S.user.name||'Owner', createdAt:serverTimestamp()}).then(function(){ toast('Expense added'); render(); }).catch(function(e){ toast(authErrorMessage(e)); }); }
+function addExpense(btn){ var amt=num($('ex_amt').value); if(amt<=0){ toast('Enter an amount'); return; }
+  press(btn,'Adding…');
+  setDoc(doc(db,'shops',S.shopId,'expenses',rid('exp_',8)), {shopId:S.shopId, category:$('ex_cat').value, amount:amt, description:$('ex_desc').value.trim()||'—', date:todayStr(), method:$('ex_method').value, recordedBy:S.user.name||'Owner', createdAt:serverTimestamp()}).then(function(){ toast('Expense added'); render(); }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); }); }
 
 /* ================= REPORTS ================= */
 function vReports(){
@@ -1063,7 +1277,7 @@ function vReports(){
     +(best.length?best.map(function(n){ return '<div class="list-item"><div class="grow bold" style="font-size:13.5px;">'+esc(n)+'</div><span class="badge b-indigo">'+agg[n]+' sold</span></div>'; }).join(''):'<div class="empty">No sales yet</div>')+'</div>';
   inner+='<div class="card"><h3>⚠️ Low stock report</h3>'
     +(lowStock().concat(outStock()).length?lowStock().concat(outStock()).map(function(p){ return '<div class="list-item"><div class="grow bold" style="font-size:13.5px;">'+esc(p.name)+'</div>'+stockBadge(p)+'</div>'; }).join(''):'<div class="empty">All stock levels are healthy 🎉</div>')+'</div>';
-  inner+='<div class="card"><h3>⬇️ Export</h3><p class="muted">Download sales, profit, stock and dues reports for this period.</p><div class="grid2"><button class="btn ghost" onclick="exportSalesCSV()">CSV Export</button><button class="btn ghost" onclick="toast(\'PDF export is ready in the real app\')">PDF Export</button></div></div>';
+  inner+='<div class="card"><h3>⬇️ Export</h3><p class="muted">Download sales, profit, stock and dues reports for this period.</p><div class="grid2"><button class="btn ghost" onclick="exportSalesCSV(this)">CSV Export</button><button class="btn ghost" onclick="downloadReportPDF(this)">PDF Export</button></div></div>';
   return shell(h+pad(inner),'reports');
 }
 
@@ -1077,12 +1291,13 @@ function vEmployees(){
       return '<div class="list-item"><div class="thumb">🧑‍💼</div><div class="grow"><div class="bold">'+esc(e.name)+'</div><div class="muted">'+esc(e.email)+'</div><span class="badge b-indigo">'+e.role+'</span> <span class="muted small">'+PERMS[e.role]+'</span></div>'
         +'<label class="switch" title="Active"><input type="checkbox" '+(e.active?'checked':'')+' onchange="toggleEmp(\''+e.id+'\',this.checked)"><span class="tr"></span></label></div>';
     }).join('')+'</div>';
-  inner+='<div class="card"><h3>✉️ Invite employee</h3><label>Name</label><input id="em_name" placeholder="Employee name"><label>Email</label><input id="em_email" type="email" placeholder="employee@example.com"><label>Role</label><select id="em_role"><option>Manager</option><option>Cashier</option><option>Inventory Staff</option></select><button class="btn emerald block" style="margin-top:12px;" onclick="addEmployee()">Send Invite</button></div>';
+  inner+='<div class="card"><h3>✉️ Invite employee</h3><label>Name</label><input id="em_name" placeholder="Employee name"><label>Email</label><input id="em_email" type="email" placeholder="employee@example.com"><label>Role</label><select id="em_role"><option>Manager</option><option>Cashier</option><option>Inventory Staff</option></select><button class="btn emerald block" style="margin-top:12px;" onclick="addEmployee(this)">Send Invite</button></div>';
   return shell(h+pad(inner),'');
 }
 function toggleEmp(id,on){ updateDoc(doc(db,'shops',S.shopId,'employees',id), {status:on?'active':'disabled'}).then(function(){ toast(on?'Employee activated':'Employee deactivated'); }).catch(function(e){ toast(authErrorMessage(e)); render(); }); }
-function addEmployee(){ var n=$('em_name').value.trim(), em=$('em_email').value.trim(); if(!n||!em){ toast('Enter name and email'); return; }
-  setDoc(doc(db,'shops',S.shopId,'employees',rid('emp_',8)), {shopId:S.shopId, userId:'', name:n, email:em, phone:'', role:roleId($('em_role').value), status:'active', createdAt:serverTimestamp()}).then(function(){ toast('Invite sent to '+em); render(); }).catch(function(e){ toast(authErrorMessage(e)); }); }
+function addEmployee(btn){ var n=$('em_name').value.trim(), em=$('em_email').value.trim(); if(!n||!em){ toast('Enter name and email'); return; }
+  press(btn,'Sending…');
+  setDoc(doc(db,'shops',S.shopId,'employees',rid('emp_',8)), {shopId:S.shopId, userId:'', name:n, email:em, phone:'', role:roleId($('em_role').value), status:'active', createdAt:serverTimestamp()}).then(function(){ toast('Invite sent to '+em); render(); }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); }); }
 
 /* ================= SUBSCRIPTION ================= */
 var PLANS=[
@@ -1109,21 +1324,24 @@ function vSubscription(){
     +'<label>Payment method</label><select id="pm_method"><option>JazzCash</option><option>EasyPaisa</option><option>Bank Transfer</option></select>'
     +'<div class="grid2"><div><label>Amount (Rs)</label><input id="pm_amt" type="number" value="'+selPlan.price+'"></div><div><label>Transaction reference</label><input id="pm_ref" placeholder="e.g. JC-123456"></div></div>'
     +'<label>Payment date</label><input id="pm_date" type="date">'
-    +'<label>Payment screenshot</label><button class="btn ghost block" onclick="toast(\'Screenshot upload is available in the real app\')">📎 Attach Screenshot</button>'
+    +'<label>Payment screenshot</label><button class="btn ghost block" onclick="openScreenshotPicker()">📎 Attach Screenshot</button>'
+    +'<input type="file" id="pm_shot" accept="image/*" style="display:none" onchange="attachScreenshot(this)">'
+    +(S.payScreenshot?'<img src="'+S.payScreenshot+'" style="max-width:100%;border-radius:12px;margin-top:8px;"><button class="link" style="color:var(--red);" onclick="S.payScreenshot=\'\';render()">Remove screenshot</button>':'')
     +(hasPendingPayment()?'<div class="card" style="background:var(--amber-soft);margin-top:12px;"><b>⏳ Submitted for verification</b><div class="small">Your payment is with the ShopFlow team. Activation usually takes a few hours.</div></div>'
-      :'<button class="btn emerald block" style="margin-top:14px;" onclick="submitPayment()">Submit for Verification</button>')
+      :'<button class="btn emerald block" style="margin-top:14px;" onclick="submitPayment(this)">Submit for Verification</button>')
     +'</div>';
   return shell(h+pad(inner),'');
 }
 function choosePlan(n){ S.payPlanId=n.toLowerCase(); S.payPlanName=n; S.payPlanChosen=true; toast(n+' plan selected — submit payment to activate'); render(); }
-function submitPayment(){ var ref=($('pm_ref').value||'').trim(); if(!ref){ toast('Enter the transaction reference'); return; }
+function submitPayment(btn){ var ref=($('pm_ref').value||'').trim(); if(!ref){ toast('Enter the transaction reference'); return; }
   var amt=num($('pm_amt').value); if(amt<=0){ toast('Enter the amount you paid'); return; }
+  press(btn,'Submitting…');
   var selName=S.payPlanChosen?S.payPlanName:planName(S.plan);
   if(selName==='Free') selName='Starter';
   var planId=selName.toLowerCase();
   var dateVal=($('pm_date').value||'').trim();
   var payId='pay_'+Date.now();
-  setDoc(doc(db,'paymentRecords',payId), {id:payId, ownerId:S.user.uid, ownerEmail:S.user.email, planId:planId, planName:selName, amount:amt, paymentMethod:$('pm_method').value, transactionRef:ref, notes:dateVal?('Paid on '+dateVal):'', status:'pending', adminRemarks:'', verifiedBy:'', verifiedAt:'', createdAt:isoNow()}).then(function(){ toast('Payment submitted for verification'); render(); }).catch(function(e){ toast(authErrorMessage(e)); }); }
+  setDoc(doc(db,'paymentRecords',payId), {id:payId, ownerId:S.user.uid, ownerEmail:S.user.email, planId:planId, planName:selName, amount:amt, paymentMethod:$('pm_method').value, transactionRef:ref, notes:dateVal?('Paid on '+dateVal):'', screenshot:S.payScreenshot||'', status:'pending', adminRemarks:'', verifiedBy:'', verifiedAt:'', createdAt:isoNow()}).then(function(){ S.payScreenshot=''; toast('Payment submitted for verification'); render(); }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); }); }
 
 /* ================= SUPER ADMIN ================= */
 function vAdmin(){
@@ -1147,9 +1365,9 @@ function vAdmin(){
   inner+='<div class="card"><h3>💳 Payment verification</h3>'
     +(S.adminPayments.length?S.adminPayments.map(function(p){
       var shopName='—'; S.adminShops.forEach(function(s){ if(s.ownerId===p.ownerId) shopName=s.name; });
-      return '<div class="list-item"><div class="grow"><div class="bold" style="font-size:13.5px;">'+esc(shopName)+'</div><div class="muted">'+esc(p.planName||p.planId)+' · '+fmt(p.amount)+' · Ref '+esc(p.ref)+'<br>'+esc(p.ownerEmail)+'</div></div>'
+      return '<div class="list-item"><div class="grow"><div class="bold" style="font-size:13.5px;">'+esc(shopName)+'</div><div class="muted">'+esc(p.planName||p.planId)+' · '+fmt(p.amount)+' · Ref '+esc(p.ref)+'<br>'+esc(p.ownerEmail)+'</div>'+(p.screenshot?'<button class="btn sm ghost" style="margin-top:6px;" onclick="viewScreenshot(\''+p.id+'\')">📎 View Screenshot</button>':'')+'</div>'
         +(p.status==='pending'
-          ?'<button class="btn sm emerald" onclick="adminPay(\''+p.id+'\',\'approved\')">Approve</button><button class="btn sm danger" onclick="adminPay(\''+p.id+'\',\'rejected\')">Reject</button>'
+          ?'<button class="btn sm emerald" onclick="adminPay(\''+p.id+'\',\'approved\',this)\">Approve</button><button class="btn sm danger" onclick="adminPay(\''+p.id+'\',\'rejected\',this)\">Reject</button>'
           :'<span class="badge '+(p.status==='approved'?'b-green':'b-red')+'">'+p.status+'</span>')
         +'</div>';
     }).join(''):'<div class="empty">No payments</div>')+'</div>';
@@ -1161,7 +1379,8 @@ function vAdmin(){
     +'<p class="muted">Plan prices &amp; limits can be edited by the Super Admin. Audit logs record every admin action.</p></div>';
   return shell(h+pad(inner),'');
 }
-function adminPay(id,st){ var rec=null; S.adminPayments.forEach(function(p){ if(p.id===id) rec=p; }); if(!rec) return;
+function adminPay(id, st, btn){ var rec=null; S.adminPayments.forEach(function(p){ if(p.id===id) rec=p; }); if(!rec) return;
+  press(btn,'Processing…');
   var payRef=doc(db,'paymentRecords',id);
   var subRef=doc(db,'subscriptions','sub_'+rec.ownerId);
   var newExpiry=new Date(Date.now()+30*86400000).toISOString();
@@ -1170,7 +1389,7 @@ function adminPay(id,st){ var rec=null; S.adminPayments.forEach(function(p){ if(
     if(st==='approved'){
       tx.set(subRef, {id:'sub_'+rec.ownerId, ownerId:rec.ownerId, planId:rec.planId, planName:rec.planName, status:'active', billingCycle:'monthly', amount:rec.amount, expiresAt:newExpiry, createdAt:isoNow()}, {merge:true});
     }
-  }).then(function(){ toast('Payment '+st); render(); }).catch(function(e){ toast(authErrorMessage(e)); }); }
+  }).then(function(){ toast('Payment '+st); render(); }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); }); }
 
 /* ================= PROFILE / SETTINGS ================= */
 function vProfile(){
@@ -1196,29 +1415,30 @@ function vSettings(){
     +'<div class="menu-item" style="cursor:default;"><span class="ic">🌙</span><span class="grow">Dark Theme</span><label class="switch"><input type="checkbox" '+(dark?'checked':'')+' onchange="setTheme(this.checked)"><span class="tr"></span></label></div>'
     +'<div class="menu-item" style="cursor:default;"><span class="ic">💱</span><span class="grow">Currency</span><span class="muted">PKR (Rs)</span></div>'
     +'<div class="menu-item" style="cursor:default;"><span class="ic">🧾</span><span class="grow">Default Tax</span><span class="muted">'+S.shop.tax+'%</span></div>'
-    +'<button class="menu-item" onclick="toast(\'Password change is available in the real app\')"><span class="ic">🔑</span>Change Password<span class="arr">›</span></button>'
+    +'<button class="menu-item" onclick="changePasswordPrompt()"><span class="ic">🔑</span>Change Password<span class="arr">›</span></button>'
     +'</div>';
   inner+='<div class="card"><h3>🏪 Shop settings</h3>'
     +'<label>Low-stock alert threshold</label><input id="st_low" type="number" value="'+S.shop.lowStock+'">'
     +'<div class="menu-item" style="cursor:default;"><span class="ic">💳</span><span class="grow">Allow Credit Sales</span><label class="switch"><input type="checkbox" id="st_credit" '+(S.shop.allowCredit?'checked':'')+'><span class="tr"></span></label></div>'
     +'<div class="menu-item" style="cursor:default;"><span class="ic">📉</span><span class="grow">Allow Negative Stock</span><label class="switch"><input type="checkbox" id="st_neg" '+(S.shop.allowNegStock?'checked':'')+'><span class="tr"></span></label></div>'
     +'<div class="menu-item" style="cursor:default;"><span class="ic">🧾</span><span class="grow">Include Tax on Invoice</span><label class="switch"><input type="checkbox" id="st_tax" '+(S.shop.includeTax?'checked':'')+'><span class="tr"></span></label></div>'
-    +'<button class="btn emerald block" style="margin-top:12px;" onclick="saveShopSettings()">💾 Save Shop Settings</button></div>';
+    +'<button class="btn emerald block" style="margin-top:12px;" onclick="saveShopSettings(this)">💾 Save Shop Settings</button></div>';
   inner+='<div class="card"><h3>⬇️ Data</h3><p class="muted">Download a backup of your shop data, or export lists as CSV.</p>'
-    +'<div class="grid2"><button class="btn ghost" onclick="downloadBackup()">Backup JSON</button><button class="btn ghost" onclick="exportProductsCSV()">Products CSV</button></div>'
-    +'<div class="grid2" style="margin-top:8px;"><button class="btn ghost" onclick="exportSalesCSV()">Sales CSV</button><button class="btn ghost" onclick="exportCustomersCSV()">Customers CSV</button></div></div>';
+    +'<div class="grid2"><button class="btn ghost" onclick="downloadBackup(this)">Backup JSON</button><button class="btn ghost" onclick="exportProductsCSV(this)">Products CSV</button></div>'
+    +'<div class="grid2" style="margin-top:8px;"><button class="btn ghost" onclick="exportSalesCSV(this)">Sales CSV</button><button class="btn ghost" onclick="exportCustomersCSV(this)">Customers CSV</button></div></div>';
   inner+='<div class="card" style="padding-top:4px;padding-bottom:4px;">'
-    +'<button class="menu-item" onclick="toast(\'Opening WhatsApp help in the real app\')"><span class="ic">💬</span>Help on WhatsApp<span class="arr">›</span></button>'
+    +'<button class="menu-item" onclick="window.open(\'https://wa.me/923343759613\',\'_blank\')"><span class="ic">💬</span>Help on WhatsApp<span class="arr">›</span></button>'
     +'<button class="menu-item" onclick="toast(\'Email: mdcatprime@gmail.com\')"><span class="ic">✉️</span>mdcatprime@gmail.com<span class="arr">›</span></button>'
     +'<div class="menu-item" style="cursor:default;"><span class="ic">ℹ️</span><span class="grow">About ShopFlow</span><span class="muted">Version 1.0.0</span></div>'
     +'</div>';
   inner+='<div class="card" style="padding-top:4px;padding-bottom:4px;"><button class="menu-item danger" onclick="logout()"><span class="ic">🚪</span>Log Out</button></div>';
   return shell(h+pad(inner),'profile');
 }
-function saveShopSettings(){
+function saveShopSettings(btn){
   var low=num($('st_low').value);
   if(low<0) low=0;
-  updateDoc(doc(db,'shops',S.shopId), {lowStockThreshold:low, allowCreditSales:$('st_credit').checked, allowNegativeStock:$('st_neg').checked, includeTaxOnInvoice:$('st_tax').checked, updatedAt:serverTimestamp()}).then(function(){ toast('Shop settings saved'); render(); }).catch(function(e){ toast(authErrorMessage(e)); });
+  press(btn,'Saving…');
+  updateDoc(doc(db,'shops',S.shopId), {lowStockThreshold:low, allowCreditSales:$('st_credit').checked, allowNegativeStock:$('st_neg').checked, includeTaxOnInvoice:$('st_tax').checked, updatedAt:serverTimestamp()}).then(function(){ toast('Shop settings saved'); render(); }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); });
 }
 function setTheme(on){ S.theme=on?'dark':'light'; try{ localStorage.setItem('shopflow_theme', S.theme); }catch(e){} document.documentElement.setAttribute('data-theme',S.theme); render(); }
 
@@ -1235,7 +1455,7 @@ function render(){ if(S.loading && S.screen!=='login'){ $('app').innerHTML=vLoad
 $('modalWrap').addEventListener('click', function(e){ if(e.target===this) closeModal(); });
 try{ var savedTheme=localStorage.getItem('shopflow_theme'); if(savedTheme==='dark'||savedTheme==='light'){ S.theme=savedTheme; document.documentElement.setAttribute('data-theme',S.theme); } }catch(e){}
 /* expose handlers for inline onclick attributes (module scope is not global) */
-Object.assign(window, {S:S, render:render, go:go, toggleNotif:toggleNotif, setAuth:setAuth, doLogin:doLogin, forgotPassword:forgotPassword, launchShop:launchShop, setDashFilter:setDashFilter, refreshPOSList:refreshPOSList, addToCart:addToCart, chgQty:chgQty, removeCart:removeCart, setItemDisc:setItemDisc, updChange:updChange, completeSale:completeSale, saveProduct:saveProduct, adjustStockPrompt:adjustStockPrompt, saveAdjustment:saveAdjustment, archiveProduct:archiveProduct, addCat:addCat, renameCat:renameCat, saveCat:saveCat, deleteCat:deleteCat, newPurchase:newPurchase, setPurProd:setPurProd, addPurLine:addPurLine, completePurchase:completePurchase, collectPayment:collectPayment, paySupplier:paySupplier, addCustomer:addCustomer, addSupplier:addSupplier, addExpense:addExpense, toggleEmp:toggleEmp, addEmployee:addEmployee, choosePlan:choosePlan, submitPayment:submitPayment, adminPay:adminPay, logout:logout, setTheme:setTheme, closeModal:closeModal, toast:toast, exportSalesCSV:exportSalesCSV, exportProductsCSV:exportProductsCSV, exportCustomersCSV:exportCustomersCSV, downloadBackup:downloadBackup, saveShopSettings:saveShopSettings});
+Object.assign(window, {S:S, render:render, go:go, toggleNotif:toggleNotif, setAuth:setAuth, doLogin:doLogin, forgotPassword:forgotPassword, launchShop:launchShop, setDashFilter:setDashFilter, refreshPOSList:refreshPOSList, addToCart:addToCart, chgQty:chgQty, removeCart:removeCart, setItemDisc:setItemDisc, updChange:updChange, completeSale:completeSale, saveProduct:saveProduct, adjustStockPrompt:adjustStockPrompt, saveAdjustment:saveAdjustment, archiveProduct:archiveProduct, addCat:addCat, renameCat:renameCat, saveCat:saveCat, deleteCat:deleteCat, newPurchase:newPurchase, setPurProd:setPurProd, addPurLine:addPurLine, completePurchase:completePurchase, collectPayment:collectPayment, paySupplier:paySupplier, addCustomer:addCustomer, addSupplier:addSupplier, addExpense:addExpense, toggleEmp:toggleEmp, addEmployee:addEmployee, choosePlan:choosePlan, submitPayment:submitPayment, adminPay:adminPay, logout:logout, setTheme:setTheme, closeModal:closeModal, toast:toast, exportSalesCSV:exportSalesCSV, exportProductsCSV:exportProductsCSV, exportCustomersCSV:exportCustomersCSV, downloadBackup:downloadBackup, saveShopSettings:saveShopSettings, googleLogin:googleLogin, downloadReceiptPDF:downloadReceiptPDF, printReceipt:printReceipt, printSaleReceipt:printSaleReceipt, printCustomerReceipt:printCustomerReceipt, printCustomerStatement:printCustomerStatement, downloadReportPDF:downloadReportPDF, openScreenshotPicker:openScreenshotPicker, attachScreenshot:attachScreenshot, viewScreenshot:viewScreenshot, changePasswordPrompt:changePasswordPrompt, changePassword:changePassword, press:press, unpress:unpress});
 initAuth();
 render();
 </script>
