@@ -292,6 +292,20 @@
   .modal{background:var(--card); width:100%; max-width:406px; max-height:calc(100dvh - 32px); overflow-y:auto; border-radius:22px; padding:20px 18px;}
   .modal-wrap.show ~ .chat-fab,.modal-wrap.show ~ .chat-panel{display:none !important;}
   .modal h3{margin:0 0 6px; font-size:17px; font-weight:800;}
+  /* ================= CAMERA BARCODE SCANNER ================= */
+  .scan-view{position:relative; background:#000; border-radius:14px; overflow:hidden; aspect-ratio:4/3; margin-top:10px;}
+  .scan-view video{width:100%; height:100%; object-fit:cover; display:block;}
+  .scan-frame{position:absolute; left:50%; top:50%; width:72%; height:44%; transform:translate(-50%,-50%); pointer-events:none;}
+  .scan-frame:before,.scan-frame:after{content:''; position:absolute; width:26px; height:26px; border:3px solid #34d399;}
+  .scan-frame:before{left:0; top:0; border-right:0; border-bottom:0; border-radius:8px 0 0 0;}
+  .scan-frame:after{right:0; bottom:0; border-left:0; border-top:0; border-radius:0 0 8px 0;}
+  .scan-frame .c2{position:absolute; right:0; top:0; width:26px; height:26px; border:3px solid #34d399; border-left:0; border-bottom:0; border-radius:0 8px 0 0;}
+  .scan-frame .c3{position:absolute; left:0; bottom:0; width:26px; height:26px; border:3px solid #34d399; border-right:0; border-top:0; border-radius:0 0 0 8px;}
+  .scan-line{position:absolute; left:16%; right:16%; top:50%; height:2px; background:rgba(52,211,153,.9); box-shadow:0 0 10px rgba(52,211,153,.8); animation:scanline 1.6s ease-in-out infinite alternate; pointer-events:none;}
+  @keyframes scanline{from{transform:translateY(-30px);} to{transform:translateY(30px);}}
+  .scan-status{text-align:center; font-size:13px; color:var(--ink2); margin-top:10px;}
+  .assign-row{display:flex; align-items:center; gap:10px; padding:10px 6px; border-bottom:1px solid var(--line); cursor:pointer;}
+  .assign-row.sel{background:var(--indigo-soft); border-radius:10px;}
   /* ================= SHOPFLOW AI CHATBOT ================= */
   .chat-fab{
     position:fixed; right:max(16px, calc(50vw - 199px)); bottom:calc(92px + env(safe-area-inset-bottom)); z-index:55;
@@ -736,7 +750,7 @@ function changePassword(btn){
 }
 
 function openModal(html){ $('modalBox').innerHTML=html; $('modalWrap').classList.add('show'); }
-function closeModal(){ $('modalWrap').classList.remove('show'); }
+function closeModal(){ stopScanner(); $('modalWrap').classList.remove('show'); }
 function go(screen){ S.screen=screen; S.notifOpen=false; render(); var sc=document.querySelector('.scroll'); if(sc) sc.scrollTop=0; window.scrollTo(0,0); }
 function refresh(){ var ae=document.activeElement; if(ae && (ae.tagName==='INPUT'||ae.tagName==='TEXTAREA'||ae.tagName==='SELECT')) return; render(); }
 function salesIn(offFrom,offTo){ return S.sales.filter(function(s){ return s.off>=offFrom && s.off<=offTo; }); }
@@ -1049,7 +1063,7 @@ function vPOSCatalog(){
     +'<button onclick="posSetTab(\'order\')">🛒 Cart ('+posCartCount()+')'+(S.cart.length?' · '+fmt(t.grand):'')+'</button></div>';
   inner+='<div class="search"><span class="si">🔍</span><input placeholder="Search products by name, SKU or brand..." value="'+esc(S.posSearch)+'" oninput="S.posSearch=this.value;refreshPOSList()"></div>';
   inner+='<div style="display:flex; gap:8px; margin-top:10px;"><div class="search" style="flex:1; min-width:0; margin-top:0;"><span class="si">📷</span><input id="posBarcode" placeholder="Scan / Type Barcode..." value="'+esc(S.posBarcode)+'" oninput="S.posBarcode=this.value" onkeydown="if(event.key===\'Enter\'){posScan();}"></div>'
-    +'<button class="btn emerald" style="flex:none;" onclick="posScan()">Scan</button></div>';
+    +'<button class="btn emerald" style="flex:none;" onclick="posScanBtn()">Scan</button></div>';
   inner+='<div class="chips">'+cats.map(function(c){ var lbl=(c==='All')?'All Items ('+activeCount+')':c; return '<button class="chip'+(S.posCat===c?' on':'')+'" onclick="S.posCat=\''+c+'\';render()">'+esc(lbl)+'</button>'; }).join('')+'</div>';
   inner+='<div id="posList">'+posGridHTML(list)+'</div>';
   if(S.cart.length) inner+='<div style="height:64px"></div>';
@@ -1102,6 +1116,127 @@ function posScan(){
   S.posBarcode=''; if(el) el.value='';
   addToCart(found.id);
   toast(found.name+' added to cart');
+}
+/* ================= CAMERA BARCODE SCANNER ================= */
+var SCAN={stream:null, timer:null, detector:null, busy:false, torchOn:false, torchCap:false};
+function stopScanner(){
+  if(typeof SCAN==='undefined'||!SCAN) return;
+  if(SCAN.timer){ clearInterval(SCAN.timer); SCAN.timer=null; }
+  if(SCAN.stream){ SCAN.stream.getTracks().forEach(function(t){ try{ t.stop(); }catch(e){} }); SCAN.stream=null; }
+  SCAN.busy=false; SCAN.torchOn=false; SCAN.torchCap=false;
+}
+function posScanBtn(){
+  var el=$('posBarcode');
+  var code=((el&&el.value)||S.posBarcode||'').trim();
+  if(code){ posScan(); return; }
+  openScanner();
+}
+function openScanner(){
+  if(!('BarcodeDetector' in window)){ toast('Camera scanning is not supported in this browser — type the barcode, SKU or product name instead'); return; }
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ toast('Camera is not available on this device — type the barcode, SKU or product name instead'); return; }
+  openModal('<h3>📷 Scan Barcode</h3>'
+    +'<p class="muted" style="margin:0;">Point the camera at the barcode</p>'
+    +'<div class="scan-view"><video id="scanVideo" playsinline muted autoplay></video><div class="scan-frame"><span class="c2"></span><span class="c3"></span></div><div class="scan-line"></div></div>'
+    +'<div class="scan-status">Scanning…</div>'
+    +'<div style="display:flex; gap:8px; margin-top:14px;"><button class="btn ghost" id="scanTorchBtn" style="flex:1; display:none;" onclick="toggleScanTorch()">🔦 Torch</button><button class="btn emerald" style="flex:1;" onclick="closeModal()">Cancel</button></div>');
+  startScanner();
+}
+function startScanner(){
+  stopScanner();
+  var video=$('scanVideo'); if(!video) return;
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}, audio:false}).then(function(stream){
+    SCAN.stream=stream; video.srcObject=stream;
+    try{ video.play(); }catch(e){}
+    var track=stream.getVideoTracks()[0];
+    if(track && track.getCapabilities){
+      try{ var caps=track.getCapabilities(); if(caps && caps.torch){ SCAN.torchCap=true; var tb=$('scanTorchBtn'); if(tb) tb.style.display=''; } }catch(e){}
+    }
+    if(!SCAN.detector){ try{ SCAN.detector=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128','code_39','qr_code']}); }catch(e){ SCAN.detector=null; } }
+    if(!SCAN.detector){ stopScanner(); closeModal(); toast('Camera scanning is not supported in this browser — type the barcode, SKU or product name instead'); return; }
+    SCAN.timer=setInterval(function(){ scanFrame(); }, 250);
+  }).catch(function(err){
+    stopScanner(); closeModal();
+    var name=err && err.name ? err.name : '';
+    if(name==='NotAllowedError' || name==='SecurityError'){ toast('Camera permission denied — allow camera access and try again'); }
+    else if(name==='NotFoundError' || name==='OverconstrainedError'){ toast('No camera found on this device'); }
+    else { toast('Could not open the camera — type the barcode, SKU or product name instead'); }
+  });
+}
+function scanFrame(){
+  if(SCAN.busy) return;
+  var video=$('scanVideo');
+  if(!video || !SCAN.stream || !SCAN.detector) return;
+  if(video.readyState<2 || !video.videoWidth) return;
+  SCAN.busy=true;
+  SCAN.detector.detect(video).then(function(codes){
+    SCAN.busy=false;
+    if(codes && codes.length && codes[0].rawValue){ onScanCode(String(codes[0].rawValue).trim()); }
+  }).catch(function(){ SCAN.busy=false; });
+}
+function onScanCode(code){
+  if(!code) return;
+  stopScanner(); closeModal();
+  var lc=code.toLowerCase(); var found=null; var partial=[];
+  S.products.forEach(function(p){
+    if(p.status!=='Active') return;
+    var bar=(p.barcode||'').toLowerCase(), sku=(p.sku||'').toLowerCase(), nm=(p.name||'').toLowerCase();
+    if(bar===lc || sku===lc || nm===lc){ if(!found) found=p; }
+    else if(nm.indexOf(lc)>=0 || sku.indexOf(lc)>=0){ partial.push(p); }
+  });
+  if(!found && partial.length===1) found=partial[0];
+  if(found){
+    if(found.stock<=0){ toast('Out of stock: '+found.name); return; }
+    var inCart=null; S.cart.forEach(function(ci){ if(ci.id===found.id) inCart=ci; });
+    if(inCart && !S.shop.allowNegStock && inCart.qty>=found.stock){ toast('Only '+found.stock+' in stock'); return; }
+    addToCart(found.id);
+    toast(found.name+' added to cart');
+    return;
+  }
+  if(partial.length>1){ toast(partial.length+' products match "'+code+'". Be more specific.'); return; }
+  openAssignBarcode(code);
+}
+function toggleScanTorch(){
+  if(!SCAN.stream) return;
+  var track=SCAN.stream.getVideoTracks()[0]; if(!track) return;
+  SCAN.torchOn=!SCAN.torchOn;
+  try{ track.applyConstraints({advanced:[{torch:SCAN.torchOn}]}); }catch(e){ SCAN.torchOn=!SCAN.torchOn; return; }
+  var tb=$('scanTorchBtn'); if(tb) tb.textContent=SCAN.torchOn?'🔦 Torch On':'🔦 Torch';
+}
+function openAssignBarcode(code){
+  S.assignCode=code; S.assignProdId=null; S.assignQuery='';
+  openModal('<h3>🔖 Barcode not found</h3>'
+    +'<p class="muted">Scanned code <b style="color:var(--ink);">'+esc(code)+'</b> is not saved for any product. Choose the product to save it for:</p>'
+    +'<div class="search"><span class="si">🔍</span><input id="assignSearch" placeholder="Search products by name or SKU..." oninput="S.assignQuery=this.value;assignFilter()"></div>'
+    +'<div id="assignList" style="max-height:280px; overflow-y:auto;"></div>'
+    +'<button class="btn emerald block" id="assignSaveBtn" style="margin-top:14px;" onclick="saveAssignBarcode(this)" disabled>💾 Save Barcode &amp; Add to Cart</button>'
+    +'<button class="btn ghost block" style="margin-top:8px;" onclick="closeModal()">Cancel</button>');
+  assignFilter();
+}
+function assignFilter(){
+  var q=(S.assignQuery||'').toLowerCase();
+  var list=S.products.filter(function(p){ return p.status==='Active' && (!q || p.name.toLowerCase().indexOf(q)>=0 || p.sku.toLowerCase().indexOf(q)>=0); });
+  var el=$('assignList'); if(!el) return;
+  var shown=list.slice(0,50);
+  el.innerHTML=(shown.length?shown.map(function(p){
+    return '<div class="assign-row'+(S.assignProdId===p.id?' sel':'')+'" onclick="assignPick(\''+p.id+'\')"><div class="grow"><div class="bold">'+esc(p.name)+'</div><div class="muted">'+esc(p.sku)+' · '+fmt(p.sell)+'</div></div>'+(S.assignProdId===p.id?'<span style="color:var(--teal); font-weight:800;">✓</span>':'')+'</div>';
+  }).join(''):'<div class="empty">No products found.</div>')
+  +(list.length>50?'<div class="muted" style="text-align:center; padding:8px 0 2px;">Showing 50 of '+list.length+' — search to narrow down</div>':'');
+}
+function assignPick(id){
+  S.assignProdId=id; assignFilter();
+  var b=$('assignSaveBtn'); if(b) b.disabled=false;
+}
+function saveAssignBarcode(btn){
+  var code=S.assignCode; var id=S.assignProdId;
+  if(!code || !id){ toast('Choose a product first'); return; }
+  var p=prod(id); if(!p){ closeModal(); return; }
+  press(btn,'Saving…');
+  updateDoc(doc(db,'shops',S.shopId,'products',id), {barcode:code, updatedAt:serverTimestamp()}).then(function(){
+    p.barcode=code;
+    closeModal();
+    addToCart(id);
+    toast(p.name+' added to cart');
+  }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); });
 }
 function vPOSOrder(){
   var t=cartTotals();
@@ -2275,7 +2410,7 @@ function vImport(){
   return shell(h+pad(inner),'profile');
 }
 /* expose handlers for inline onclick attributes (module scope is not global) */
-Object.assign(window, {S:S, render:render, go:go, setOnboard:setOnboard, onboardNext:onboardNext, toggleNotif:toggleNotif, setAuth:setAuth, doLogin:doLogin, forgotPassword:forgotPassword, launchShop:launchShop, setDashFilter:setDashFilter, refreshPOSList:refreshPOSList, posSetTab:posSetTab, posScan:posScan, openPayModal:openPayModal, setPayMethod:setPayMethod, updPayChange:updPayChange, posAddCustomer:posAddCustomer, posSaveCustomer:posSaveCustomer, clearCart:clearCart, startNextSale:startNextSale, printA4Invoice:printA4Invoice, addToCart:addToCart, chgQty:chgQty, removeCart:removeCart, setItemDisc:setItemDisc, updChange:updChange, completeSale:completeSale, saveProduct:saveProduct, adjustStockPrompt:adjustStockPrompt, saveAdjustment:saveAdjustment, archiveProduct:archiveProduct, addCat:addCat, renameCat:renameCat, saveCat:saveCat, deleteCat:deleteCat, newPurchase:newPurchase, setPurProd:setPurProd, addPurLine:addPurLine, completePurchase:completePurchase, collectPayment:collectPayment, paySupplier:paySupplier, addCustomer:addCustomer, addSupplier:addSupplier, addExpense:addExpense, toggleEmp:toggleEmp, addEmployee:addEmployee, choosePlan:choosePlan, submitPayment:submitPayment, adminPay:adminPay, logout:logout, setTheme:setTheme, closeModal:closeModal, chatToggle:chatToggle, chatSend:chatSend, chatChip:chatChip, chatConfirm:chatConfirm, chatCancel:chatCancel, toast:toast, exportSalesCSV:exportSalesCSV, exportProductsCSV:exportProductsCSV, exportCustomersCSV:exportCustomersCSV, downloadBackup:downloadBackup, saveShopSettings:saveShopSettings, googleLogin:googleLogin, downloadReceiptPDF:downloadReceiptPDF, printReceipt:printReceipt, printSaleReceipt:printSaleReceipt, printCustomerReceipt:printCustomerReceipt, printCustomerStatement:printCustomerStatement, downloadReportPDF:downloadReportPDF, openScreenshotPicker:openScreenshotPicker, attachScreenshot:attachScreenshot, viewScreenshot:viewScreenshot, changePasswordPrompt:changePasswordPrompt, changePassword:changePassword, press:press, unpress:unpress, impFilePicked:impFilePicked, impParsePasted:impParsePasted, impRowEdit:impRowEdit, impRemoveRow:impRemoveRow, impConfirm:impConfirm, impReset:impReset});
+Object.assign(window, {S:S, render:render, go:go, setOnboard:setOnboard, onboardNext:onboardNext, toggleNotif:toggleNotif, setAuth:setAuth, doLogin:doLogin, forgotPassword:forgotPassword, launchShop:launchShop, setDashFilter:setDashFilter, refreshPOSList:refreshPOSList, posSetTab:posSetTab, posScan:posScan, posScanBtn:posScanBtn, openScanner:openScanner, toggleScanTorch:toggleScanTorch, assignPick:assignPick, assignFilter:assignFilter, saveAssignBarcode:saveAssignBarcode, openPayModal:openPayModal, setPayMethod:setPayMethod, updPayChange:updPayChange, posAddCustomer:posAddCustomer, posSaveCustomer:posSaveCustomer, clearCart:clearCart, startNextSale:startNextSale, printA4Invoice:printA4Invoice, addToCart:addToCart, chgQty:chgQty, removeCart:removeCart, setItemDisc:setItemDisc, updChange:updChange, completeSale:completeSale, saveProduct:saveProduct, adjustStockPrompt:adjustStockPrompt, saveAdjustment:saveAdjustment, archiveProduct:archiveProduct, addCat:addCat, renameCat:renameCat, saveCat:saveCat, deleteCat:deleteCat, newPurchase:newPurchase, setPurProd:setPurProd, addPurLine:addPurLine, completePurchase:completePurchase, collectPayment:collectPayment, paySupplier:paySupplier, addCustomer:addCustomer, addSupplier:addSupplier, addExpense:addExpense, toggleEmp:toggleEmp, addEmployee:addEmployee, choosePlan:choosePlan, submitPayment:submitPayment, adminPay:adminPay, logout:logout, setTheme:setTheme, closeModal:closeModal, chatToggle:chatToggle, chatSend:chatSend, chatChip:chatChip, chatConfirm:chatConfirm, chatCancel:chatCancel, toast:toast, exportSalesCSV:exportSalesCSV, exportProductsCSV:exportProductsCSV, exportCustomersCSV:exportCustomersCSV, downloadBackup:downloadBackup, saveShopSettings:saveShopSettings, googleLogin:googleLogin, downloadReceiptPDF:downloadReceiptPDF, printReceipt:printReceipt, printSaleReceipt:printSaleReceipt, printCustomerReceipt:printCustomerReceipt, printCustomerStatement:printCustomerStatement, downloadReportPDF:downloadReportPDF, openScreenshotPicker:openScreenshotPicker, attachScreenshot:attachScreenshot, viewScreenshot:viewScreenshot, changePasswordPrompt:changePasswordPrompt, changePassword:changePassword, press:press, unpress:unpress, impFilePicked:impFilePicked, impParsePasted:impParsePasted, impRowEdit:impRowEdit, impRemoveRow:impRemoveRow, impConfirm:impConfirm, impReset:impReset});
 /* cached shop: the welcome IS the loading screen — show it at once while auth resolves */
 (function(){ var c=readCachedShop(); if(c){ S.shop=Object.assign(defaultShop(), {name:c.name, category:c.category||'', address:c.address||''}); S.welcomed=true; S.screen='welcome'; startWelcome(); } })();
 initAuth();
