@@ -340,6 +340,43 @@
   .imp-row label{margin-top:10px;}
   .imp-row input,.imp-row select{margin-top:4px;}
   .imp-sticky{position:sticky; bottom:12px; z-index:5; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:12px; box-shadow:var(--shadow); margin-top:14px;}
+  /* ---------- POS: catalog grid, cart bar, payment ---------- */
+  .pos-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;}
+  .pos-card{position:relative; background:var(--card); border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow); padding:12px; text-align:left; min-height:122px; display:flex; flex-direction:column;}
+  .pos-card:disabled{opacity:.45;}
+  .pos-card .sku{font-family:ui-monospace,Menlo,monospace; font-size:10.5px; color:var(--ink2); padding-right:34px; overflow-wrap:break-word;}
+  .pos-card .qtybadge{position:absolute; top:10px; right:10px; background:#dc2626; color:#fff; font-size:11px; font-weight:800; padding:3px 8px; border-radius:999px;}
+  .pos-card .nm{font-size:13.5px; font-weight:800; color:var(--ink); margin-top:6px; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .pos-card .br{font-size:11px; color:var(--ink2); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .pos-card .pr{margin-top:auto; padding-top:10px; border-top:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:6px;}
+  .pos-card .pr .p{font-size:14.5px; font-weight:800; color:var(--ink); white-space:nowrap;}
+  .pos-cartbar{position:fixed; left:50%; transform:translateX(-50%); width:min(406px,calc(100vw - 24px)); bottom:calc(86px + env(safe-area-inset-bottom)); z-index:35; background:#0c2b28; color:#fff; border:1px solid #0c2b28; border-radius:20px; padding:12px 14px; display:flex; align-items:center; gap:12px; box-shadow:0 18px 36px -12px rgba(0,0,0,.45); text-align:left;}
+  .pos-cartbar .cb-ic{width:38px; height:38px; flex:none; border-radius:13px; background:#0f766e; display:grid; place-items:center; font-size:18px;}
+  .pos-cartbar .cb-t{font-size:13.5px; font-weight:800; line-height:1.25;}
+  .pos-cartbar .cb-s{font-size:11px; color:rgba(255,255,255,.72); font-weight:500;}
+  .pos-cartbar .cb-tot{margin-left:auto; color:#34d399; font-weight:800; font-size:14px; white-space:nowrap;}
+  .pay-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .pay-opt{border:1.5px solid var(--line); background:var(--card); border-radius:16px; padding:13px 8px; font-weight:800; font-size:13.5px; color:var(--ink); text-align:center; min-height:52px;}
+  .pay-opt.on{border-color:#0d9488; background:var(--emerald-soft); color:#0f766e;}
+  .pay-note{background:var(--amber-soft); border:1px solid #fcd34d; color:#92400e; border-radius:14px; padding:12px; font-size:13px; line-height:1.55;}
+  [data-theme="dark"] .pay-note{color:#fcd34d; border-color:#57534e;}
+  .pay-err{background:var(--red-soft); border:1px solid #fecaca; color:var(--red); border-radius:14px; padding:11px 13px; font-size:13px; font-weight:700; line-height:1.5;}
+  @media print{
+    #print-area.a4{display:block !important; font-family:"Plus Jakarta Sans",system-ui,sans-serif; font-size:12px; color:#111; line-height:1.5; padding:0;}
+    #print-area.a4 .a4-banner{background:#0f172a; color:#fff; padding:18px 16px; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
+    #print-area.a4 .a4-banner h2{margin:0; font-size:20px;}
+    #print-area.a4 .a4-banner .sub{font-size:11px; letter-spacing:.08em; margin-top:4px; opacity:.85;}
+    #print-area.a4 .a4-banner .meta{text-align:right; font-size:11px; line-height:1.7;}
+    #print-area.a4 .a4-meta{display:flex; justify-content:space-between; gap:16px; padding:16px 4px 0; font-size:12px;}
+    #print-area.a4 table{width:100%; font-size:12px; border-collapse:collapse; margin-top:14px;}
+    #print-area.a4 th{background:#f1f5f9; -webkit-print-color-adjust:exact; print-color-adjust:exact; padding:7px 6px; border-bottom:1px solid #e2e8f0; text-align:left;}
+    #print-area.a4 td{padding:7px 6px; border-bottom:1px solid #eef2f7;}
+    #print-area.a4 td.num,#print-area.a4 th.num{text-align:right;}
+    #print-area.a4 .a4-sum{margin-left:auto; width:230px; margin-top:14px; font-size:12px;}
+    #print-area.a4 .a4-sum .row{display:flex; justify-content:space-between; padding:4px 0;}
+    #print-area.a4 .a4-sum .grand{font-weight:800; font-size:14px; border-top:1px solid #cbd5e1; padding-top:8px; margin-top:4px;}
+    #print-area.a4 .a4-foot{text-align:center; color:#64748b; font-size:11px; margin-top:26px;}
+  }
 </style>
 </head>
 <body>
@@ -400,6 +437,7 @@ var S = {
   plan:'free', subscription:null,
   dashFilter:'today', reportFilter:'7',
   posCat:'All', posSearch:'', cart:[], posCustomer:'walkin', payType:'Cash', paidAmt:'', invDisc:0,
+  posTab:'catalog', posBarcode:'', payMethod:'cash', payPaid:'', payNotes:'', payError:'',
   prodSearch:'', prodCat:'All', editProdId:null,
   catSearch:'', invTab:'stock',
   salesSearch:'', saleDetailId:null,
@@ -414,7 +452,7 @@ var S = {
 };
 
 /* ---------- Firestore document -> in-page model ---------- */
-function payLabel(m, st){ if(m==='credit') return 'Credit'; if(st==='partial') return 'Partial'; return 'Cash'; }
+function payLabel(m, st){ if(m==='credit') return 'Credit'; if(m==='card') return 'Card'; if(m==='bank') return 'Bank'; if(st==='partial') return 'Partial'; return 'Cash'; }
 function mapShop(d){ var x=d.data(); return {id:d.id, name:x.name||'', category:x.category||'General Store', currency:x.currency||'PKR', phone:x.phone||'', address:x.address||'', email:x.email||'', tax:num(x.taxRate), plan:x.subscriptionPlan||'free', lowStock:num(x.lowStockThreshold==null?5:x.lowStockThreshold), allowCredit:x.allowCreditSales!==false, allowNegStock:x.allowNegativeStock===true, includeTax:x.includeTaxOnInvoice!==false, status:x.status||'active', lastSaleNo:num(x.lastSaleNo||1000), lastPurchaseNo:num(x.lastPurchaseNo||200)}; }
 function mapCategory(d){ var x=d.data(); return {id:d.id, name:x.name||'', description:x.description||''}; }
 function mapProduct(d){ var x=d.data(); return {id:d.id, name:x.name||'', sku:x.sku||'', barcode:x.barcode||'', cat:x.categoryName||'', catId:x.categoryId||'', brand:x.brand||'', unit:x.unit||'piece', buy:num(x.purchasePrice), sell:num(x.salePrice), stock:num(x.quantity), min:num(x.minStockAlert==null?5:x.minStockAlert), expiry:x.expiryDate||'', status:x.status||'Active', supplierId:x.supplierId||''}; }
@@ -596,7 +634,7 @@ function downloadReportPDF(btn){
 }
 
 /* ---------- print (receipt / statement) ---------- */
-function printHTML(html){ var pa=$('print-area'); if(!pa){ toast('Print is not available'); return; } pa.innerHTML=html; setTimeout(function(){ window.print(); },60); }
+function printHTML(html, cls){ var pa=$('print-area'); if(!pa){ toast('Print is not available'); return; } pa.className=cls||''; pa.innerHTML=html; setTimeout(function(){ window.print(); },60); }
 function receiptPrintHTML(s){
   var rows=s.items.map(function(it){ return '<tr><td>'+esc(it.name)+'</td><td class="num">'+it.qty+'</td><td class="num">'+fmt(it.price*it.qty*(1-(it.disc||0)/100))+'</td></tr>'; }).join('');
   return '<h4>'+esc(S.shop.name)+'</h4><div class="c small">'+esc(S.shop.address)+'<br>'+esc(S.shop.phone)+'</div><hr>'
@@ -982,68 +1020,167 @@ function setDashFilter(f){ S.dashFilter=f; render(); }
 function cartTotals(){
   var sub=0,cost=0;
   S.cart.forEach(function(ci){ var p=prod(ci.id); if(!p)return; sub+=p.sell*ci.qty*(1-(ci.disc||0)/100); cost+=p.buy*ci.qty; });
-  var afterDisc=sub*(1-(S.invDisc||0)/100);
+  var invDisc=Math.min(Math.max(0, num(S.invDisc)||0), sub);
+  var afterDisc=sub-invDisc;
   var tax=S.shop.includeTax?afterDisc*(S.shop.tax/100):0;
-  return {sub:sub, discAmt:sub-afterDisc, tax:tax, grand:afterDisc+tax, cost:cost};
+  return {sub:sub, discAmt:invDisc, tax:tax, grand:afterDisc+tax, cost:cost};
 }
-function vPOS(){
-  var cats=['All'].concat(S.categories.map(function(c){return c.name;}));
-  var list=S.products.filter(function(p){
+/* ================= POS ================= */
+function posFiltered(){
+  var q=S.posSearch.toLowerCase();
+  return S.products.filter(function(p){
     return p.status==='Active' && (S.posCat==='All'||p.cat===S.posCat) &&
-      (p.name.toLowerCase().indexOf(S.posSearch.toLowerCase())>=0 || p.barcode.indexOf(S.posSearch)>=0 || p.sku.toLowerCase().indexOf(S.posSearch.toLowerCase())>=0);
+      (!q || p.name.toLowerCase().indexOf(q)>=0 || (p.barcode||'').indexOf(S.posSearch)>=0 || p.sku.toLowerCase().indexOf(q)>=0 || (p.brand||'').toLowerCase().indexOf(q)>=0);
   });
-  var h=topbar('Point of Sale','Tap a product to add it to the bill');
-  var inner='<div class="search"><span class="si">🔍</span><input placeholder="Search product, SKU or barcode…" value="'+esc(S.posSearch)+'" oninput="S.posSearch=this.value;refreshPOSList()"></div>';
-  inner+='<div class="chips">'+cats.map(function(c){ return '<button class="chip'+(S.posCat===c?' on':'')+'" onclick="S.posCat=\''+c+'\';render()">'+esc(c)+'</button>'; }).join('')+'</div>';
-  inner+='<div id="posList">'+posListHTML(list)+'</div>';
-  inner+=cartHTML();
-  return shell(h+pad(inner),'pos');
 }
-function posListHTML(list){
-  if(!list.length) return '<div class="card"><div class="empty"><div class="big">🔍</div>No products match your search.</div></div>';
-  return '<div class="card" style="padding-top:4px;padding-bottom:4px;">'+list.map(function(p){
-    return '<div class="list-item"><div class="thumb">📦</div><div class="grow"><div class="bold">'+esc(p.name)+'</div><div class="muted">'+fmt(p.sell)+' · '+stockBadge(p)+'</div></div>'
-      +'<button class="btn sm emerald" '+(p.stock===0?'disabled':'')+' onclick="addToCart(\''+p.id+'\')">+ Add</button></div>';
+function posCartCount(){ return S.cart.reduce(function(a,ci){ return a+ci.qty; },0); }
+function posSetTab(t){ S.posTab=t; render(); }
+function clearCart(){ S.cart=[]; S.invDisc=0; render(); toast('Cart cleared'); }
+function vPOS(){ return S.posTab==='order' ? vPOSOrder() : vPOSCatalog(); }
+function vPOSCatalog(){
+  var list=posFiltered();
+  var activeCount=S.products.filter(function(p){ return p.status==='Active'; }).length;
+  var cats=['All'].concat(S.categories.map(function(c){return c.name;}));
+  var t=cartTotals();
+  var h=topbar('Point of Sale','Tap a product to add it to the bill');
+  var inner='<div class="seg" style="margin-top:14px;"><button class="'+(S.posTab==='catalog'?'on':'')+'" onclick="posSetTab(\'catalog\')">📦 Catalog (<span id="posCatCount">'+list.length+'</span>)</button>'
+    +'<button onclick="posSetTab(\'order\')">🛒 Cart ('+posCartCount()+')'+(S.cart.length?' · '+fmt(t.grand):'')+'</button></div>';
+  inner+='<div class="search"><span class="si">🔍</span><input placeholder="Search products by name, SKU or brand..." value="'+esc(S.posSearch)+'" oninput="S.posSearch=this.value;refreshPOSList()"></div>';
+  inner+='<div style="display:flex; gap:8px; margin-top:10px;"><div class="search" style="flex:1; margin-top:0;"><span class="si">📷</span><input id="posBarcode" placeholder="Scan / Type Barcode..." value="'+esc(S.posBarcode)+'" oninput="S.posBarcode=this.value" onkeydown="if(event.key===\'Enter\'){posScan();}"></div>'
+    +'<button class="btn emerald" onclick="posScan()">Scan</button></div>';
+  inner+='<div class="chips">'+cats.map(function(c){ var lbl=(c==='All')?'All Items ('+activeCount+')':c; return '<button class="chip'+(S.posCat===c?' on':'')+'" onclick="S.posCat=\''+c+'\';render()">'+esc(lbl)+'</button>'; }).join('')+'</div>';
+  inner+='<div id="posList">'+posGridHTML(list)+'</div>';
+  if(S.cart.length) inner+='<div style="height:64px"></div>';
+  var bar='';
+  if(S.cart.length){
+    bar='<button class="pos-cartbar" onclick="posSetTab(\'order\')"><span class="cb-ic">🛒</span><span><span class="cb-t">'+posCartCount()+' item(s) in Cart</span><br><span class="cb-s">Tap to review order &amp; pay</span></span><span class="cb-tot">'+fmt(t.grand)+' →</span></button>';
+  }
+  return shell(h+pad(inner),'pos',bar);
+}
+function posGridHTML(list){
+  if(!list.length) return '<div class="card"><div class="empty"><div class="big">🔍</div>No products found.<br><span class="small">Try adjusting your search query.</span></div></div>';
+  return '<div class="pos-grid">'+list.map(function(p){
+    var inCart=null; S.cart.forEach(function(ci){ if(ci.id===p.id) inCart=ci; });
+    var badge='';
+    if(p.stock===0) badge='<span class="badge b-red">Out of stock</span>';
+    else if(p.stock<=p.min) badge='<span class="badge b-amber">'+p.stock+' '+esc(p.unit)+'</span>';
+    else badge='<span class="badge b-gray">'+p.stock+' '+esc(p.unit)+'</span>';
+    return '<button class="pos-card" '+(p.stock===0?'disabled':'')+' onclick="addToCart(\''+p.id+'\')">'
+      +'<span class="sku">'+esc(p.sku||'')+'</span>'
+      +(inCart?'<span class="qtybadge">x'+inCart.qty+'</span>':'')
+      +'<span class="nm">'+esc(p.name)+'</span>'
+      +'<span class="br">'+esc(p.brand||p.cat||'')+'</span>'
+      +'<span class="pr"><span class="p">'+fmt(p.sell)+'</span>'+badge+'</span></button>';
   }).join('')+'</div>';
 }
 function refreshPOSList(){
-  var list=S.products.filter(function(p){
-    return p.status==='Active' && (S.posCat==='All'||p.cat===S.posCat) &&
-      (p.name.toLowerCase().indexOf(S.posSearch.toLowerCase())>=0 || p.barcode.indexOf(S.posSearch)>=0);
-  });
-  $('posList').innerHTML=posListHTML(list);
+  var list=posFiltered();
+  var el=$('posList'); if(el) el.innerHTML=posGridHTML(list);
+  var cc=$('posCatCount'); if(cc) cc.textContent=list.length;
 }
-function cartHTML(){
-  if(!S.shop.allowCredit) S.payType='Cash';
+function posScan(){
+  var code=(S.posBarcode||'').trim();
+  if(!code){ toast('Type a barcode or SKU first'); return; }
+  var lc=code.toLowerCase(); var found=null;
+  S.products.forEach(function(p){ if(!found && ((p.barcode||'').toLowerCase()===lc || (p.sku||'').toLowerCase()===lc)) found=p; });
+  if(!found){ toast('No product found with barcode / SKU: "'+code+'"'); return; }
+  S.posBarcode='';
+  addToCart(found.id);
+  toast(found.name+' added to cart');
+}
+function vPOSOrder(){
   var t=cartTotals();
-  var h='<div class="card"><h3>🛒 Current Bill '+(S.cart.length?'('+S.cart.length+' items)':'')+'</h3>';
-  if(!S.cart.length){ h+='<div class="empty"><div class="big">🧺</div>Cart is empty. Tap “+ Add” on a product above.</div></div>'; return h; }
-  h+=S.cart.map(function(ci,i){ var p=prod(ci.id); if(!p) return '';
-    return '<div class="list-item"><div class="grow"><div class="bold">'+esc(p.name)+'</div><div class="muted">'+fmt(p.sell)+' each · stock '+p.stock+'</div>'
-      +'<div class="row" style="margin-top:5px;"><span class="small muted">Item discount %</span><input type="number" style="width:64px;padding:5px 8px;min-height:34px;" value="'+(ci.disc||0)+'" onchange="setItemDisc('+i+',this.value)"></div></div>'
-      +'<div class="qty"><button onclick="chgQty('+i+',-1)">−</button><span class="n">'+ci.qty+'</span><button onclick="chgQty('+i+',1)">+</button></div>'
-      +'<div style="text-align:right;min-width:74px;flex:none;"><div class="price">'+fmt(p.sell*ci.qty*(1-(ci.disc||0)/100))+'</div><button class="link" style="color:var(--red);" onclick="removeCart('+i+')">Remove</button></div></div>';
-  }).join('');
-  h+='<label>Customer</label><select onchange="S.posCustomer=this.value">'
-    +'<option value="walkin"'+(S.posCustomer==='walkin'?' selected':'')+'>Walk-in</option>'
-    +S.customers.map(function(c){ return '<option value="'+c.id+'"'+(S.posCustomer===c.id?' selected':'')+'>'+esc(c.name)+'</option>'; }).join('')+'</select>';
-  h+='<div class="grid2"><div><label>Invoice discount %</label><input type="number" value="'+(S.invDisc||0)+'" onchange="S.invDisc=parseFloat(this.value)||0;render()"></div>'
-    +'<div><label>Payment</label><select onchange="S.payType=this.value;render()">'
-    +(S.shop.allowCredit?['Cash','Partial','Credit']:['Cash']).map(function(m){ return '<option'+(S.payType===m?' selected':'')+'>'+m+'</option>'; }).join('')+'</select></div></div>';
-  if(S.payType!=='Cash'){
-    h+='<label>Amount paid now (Rs)</label><input type="number" id="paidAmt" placeholder="0" value="'+esc(S.paidAmt)+'">';
-    h+='<p class="muted">Remaining '+(S.payType==='Credit'?'will be added to':'balance goes to')+' '+esc((S.posCustomer==='walkin')?'Walk-in':((custById(S.posCustomer)||{}).name||'Walk-in'))+'’s dues. Credit needs a named customer.</p>';
+  var h='<div class="topbar"><button class="back" onclick="posSetTab(\'catalog\')" aria-label="Back to Catalog">‹</button>'
+    +'<div class="grow"><h1>Current Order</h1><div class="sub">'+S.cart.length+' item line(s)</div></div>'
+    +(S.cart.length?'<button class="link" style="color:#fca5a5; margin:0; flex:none;" onclick="clearCart()">Clear</button>':'')
+    +'</div><!--NSLOT-->';
+  var inner='<div class="card" style="margin-top:14px;"><div style="display:flex; gap:8px; align-items:center;"><select style="flex:1;" onchange="S.posCustomer=this.value">'
+    +'<option value="walkin"'+(S.posCustomer==='walkin'?' selected':'')+'>🚶 Walk-in Customer (Cash)</option>'
+    +S.customers.map(function(c){ return '<option value="'+c.id+'"'+(S.posCustomer===c.id?' selected':'')+'>👤 '+esc(c.name)+(c.due>0?' (Dues: '+fmt(c.due)+')':'')+'</option>'; }).join('')+'</select>'
+    +'<button class="btn ghost" style="flex:none; min-width:48px;" onclick="posAddCustomer()" aria-label="Add New Customer">+</button></div></div>';
+  if(!S.cart.length){
+    inner+='<div class="card"><div class="empty"><div class="big">🛒</div>Cart is empty.<br><span class="small">Tap products in the catalog to start billing.</span></div></div>';
+  } else {
+    inner+='<div class="card" style="padding-top:4px;padding-bottom:4px;">'+S.cart.map(function(ci,i){ var p=prod(ci.id); if(!p) return '';
+      var line=p.sell*ci.qty*(1-(ci.disc||0)/100);
+      return '<div class="list-item"><div class="grow"><div class="bold">'+esc(p.name)+'</div><div class="muted">'+esc(p.sku)+' · '+fmt(p.sell)+' each</div>'
+        +'<div class="row" style="margin-top:8px;"><span class="qty"><button onclick="chgQty('+i+',-1)">−</button><span class="n">'+ci.qty+'</span><button onclick="chgQty('+i+',1)">+</button></span></div></div>'
+        +'<div style="text-align:right;flex:none;"><div class="price">'+fmt(line)+'</div><button class="link" style="color:var(--red);" onclick="removeCart('+i+')">🗑 Delete</button></div></div>';
+    }).join('')+'</div>';
   }
-  h+='<div style="margin-top:10px;"><div class="tot-row"><span>Subtotal</span><span>'+fmt(t.sub)+'</span></div>'
-    +(t.discAmt>0?'<div class="tot-row"><span>Invoice discount</span><span>− '+fmt(t.discAmt)+'</span></div>':'')
-    +'<div class="tot-row"><span>Tax ('+S.shop.tax+'%)</span><span>'+fmt(t.tax)+'</span></div>'
-    +'<div class="tot-row grand"><span>Grand Total</span><span>'+fmt(t.grand)+'</span></div></div>';
-  if(S.payType==='Cash'){
-    h+='<label>Cash received (Rs)</label><input type="number" id="cashAmt" placeholder="e.g. 1000" oninput="updChange('+t.grand+')">';
-    h+='<div class="tot-row"><span>Change to return</span><span class="bold pos" id="changeOut">—</span></div>';
+  inner+='<div class="card"><div class="tot-row"><span>Subtotal:</span><span>'+fmt(t.sub)+'</span></div>'
+    +'<div class="tot-row"><span>Invoice Discount (PKR):</span><span><input type="number" min="0" style="width:110px; text-align:right; padding:7px 10px; min-height:38px;" placeholder="0" value="'+(S.invDisc||'')+'" onchange="S.invDisc=Math.max(0,num(this.value));render()"></span></div>'
+    +(t.tax>0?'<div class="tot-row"><span>Sales Tax ('+S.shop.tax+'%):</span><span>+'+fmt(t.tax)+'</span></div>':'')
+    +'<div class="tot-row grand"><span>Total Payable:</span><span>'+fmt(t.grand)+'</span></div>'
+    +'<button class="btn emerald block" style="margin-top:12px;" '+(S.cart.length?'':'disabled')+' onclick="openPayModal()">Proceed to Payment →</button></div>';
+  return shell(h+pad(inner),'pos');
+}
+function openPayModal(){
+  if(!S.cart.length){ toast('Cart is empty'); return; }
+  var t=cartTotals();
+  S.payMethod=S.payMethod||'cash';
+  S.payPaid=String(Math.round(t.grand));
+  S.payNotes=S.payNotes||''; S.payError='';
+  openModal(payModalHTML());
+}
+function payModalHTML(){
+  var t=cartTotals();
+  var cust=(S.posCustomer==='walkin')?null:custById(S.posCustomer);
+  var h='<h3>Complete Sale Payment</h3><p class="muted" style="margin-top:2px;">Invoice Grand Total: <b style="color:var(--ink);">'+fmt(t.grand)+'</b></p>';
+  if(S.payError) h+='<div class="pay-err" style="margin-top:12px;">'+esc(S.payError)+'</div>';
+  h+='<label style="margin-top:16px;">Payment Method</label><div class="pay-grid">'
+    +[['cash','💵 Cash'],['credit','📋 Udhaar (Credit)'],['card','💳 Debit Card'],['bank','📱 JazzCash / Bank']].map(function(m){
+      return '<button type="button" class="pay-opt'+(S.payMethod===m[0]?' on':'')+'" onclick="setPayMethod(\''+m[0]+'\')">'+m[1]+'</button>';
+    }).join('')+'</div>';
+  h+='<p class="muted" style="margin-top:8px; font-size:12px;">ℹ️ Manual settlement only. Settle cash, JazzCash, or bank transfer in person.</p>';
+  if(S.payMethod==='credit'){
+    h+='<div class="pay-note" style="margin-top:12px;"><strong>Credit Sale (Udhaar):</strong> The full invoice total of <b>'+fmt(t.grand)+'</b> will be added to <strong>'+esc(cust?cust.name:'Selected Customer')+'</strong>\'s outstanding balance.</div>';
+  } else {
+    var paid=num(S.payPaid);
+    var chg=paid>=t.grand?fmt(paid-t.grand):('Need '+fmt(t.grand-paid)+' more');
+    h+='<div class="grid2" style="margin-top:12px;"><div><label>Customer Paid Amount (PKR)</label><input type="number" min="0" id="payPaidIn" value="'+esc(S.payPaid)+'" oninput="updPayChange()"></div>'
+      +'<div><label>Change to Return (PKR)</label><div id="payChangeOut" style="padding:11px 13px; border-radius:14px; background:var(--field); font-weight:800; font-size:15px; color:'+(paid>=t.grand?'#059669':'var(--red)')+';">'+chg+'</div></div></div>';
   }
-  h+='<button class="btn emerald block" style="margin-top:12px;" onclick="completeSale(this)">✅ Complete Sale</button></div>';
+  h+='<label style="margin-top:14px;">Invoice Notes / Remarks (Optional)</label><input type="text" id="payNotesIn" value="'+esc(S.payNotes)+'" placeholder="e.g. Delivered to home, packing charge included...">';
+  h+='<div style="display:flex; gap:10px; margin-top:18px;"><button class="btn ghost" style="flex:1;" onclick="closeModal()">Cancel (No Record)</button>'
+    +'<button class="btn emerald" id="payConfirmBtn" style="flex:2;" onclick="completeSale(this)">Confirm Sale &amp; Print Invoice</button></div>';
   return h;
+}
+function setPayMethod(m){
+  var pi=$('payPaidIn'); if(pi) S.payPaid=pi.value;
+  var ni=$('payNotesIn'); if(ni) S.payNotes=ni.value;
+  S.payMethod=m; S.payError='';
+  if(m!=='credit' && (S.payPaid===''||S.payPaid==null)) S.payPaid=String(Math.round(cartTotals().grand));
+  openModal(payModalHTML());
+}
+function updPayChange(){
+  var pi=$('payPaidIn'); if(!pi) return;
+  S.payPaid=pi.value;
+  var t=cartTotals(); var paid=num(pi.value);
+  var el=$('payChangeOut'); if(!el) return;
+  el.textContent = paid>=t.grand ? fmt(paid-t.grand) : ('Need '+fmt(t.grand-paid)+' more');
+  el.style.color = paid>=t.grand ? '#059669' : 'var(--red)';
+}
+function posAddCustomer(){
+  openModal('<h3>➕ Add New Customer</h3><p class="muted" style="margin-top:2px;">Create customer account for credit tracking</p>'
+    +'<label style="margin-top:14px;">Customer Full Name *</label><input type="text" id="pc_name" placeholder="e.g. Tariq Mehmood">'
+    +'<div class="grid2"><div><label>Phone Number</label><input type="text" id="pc_phone" placeholder="0300-1234567"></div>'
+    +'<div><label>Credit Limit (PKR)</label><input type="number" id="pc_limit" value="10000"></div></div>'
+    +'<label>Address / Street</label><input type="text" id="pc_address" placeholder="Street #, Sector, Town">'
+    +'<div style="display:flex; gap:10px; margin-top:18px;"><button class="btn ghost" style="flex:1;" onclick="closeModal()">Cancel</button>'
+    +'<button class="btn emerald" style="flex:1;" onclick="posSaveCustomer(this)">Save Customer</button></div>');
+}
+function posSaveCustomer(btn){
+  var n=(($('pc_name')||{}).value||'').trim(); if(!n){ toast('Enter a name'); return; }
+  var phone=(($('pc_phone')||{}).value||'').trim();
+  var addr=(($('pc_address')||{}).value||'').trim();
+  var limit=Math.max(0, num(($('pc_limit')||{}).value));
+  press(btn,'Saving…');
+  var id=rid('cust_',8);
+  setDoc(doc(db,'shops',S.shopId,'customers',id), {shopId:S.shopId, name:n, phone:phone, email:'', address:addr, balance:0, creditLimit:limit, createdAt:serverTimestamp()}).then(function(){
+    S.customers.push({id:id, name:n, phone:phone, email:'', address:addr, due:0, creditLimit:limit});
+    S.posCustomer=id; closeModal(); toast('Customer added'); render();
+  }).catch(function(e){ unpress(btn); toast(authErrorMessage(e)); });
 }
 function updChange(grand){ var v=parseFloat($('cashAmt').value)||0; $('changeOut').textContent = v>=grand? fmt(v-grand) : (v>0?'Need '+fmt(grand-v)+' more':'—'); }
 function addToCart(id){ var p=prod(id); var ex=null;
@@ -1061,20 +1198,29 @@ function removeCart(i){ S.cart.splice(i,1); render(); }
 function setItemDisc(i,v){ S.cart[i].disc=Math.min(100,Math.max(0,parseFloat(v)||0)); render(); }
 function completeSale(btn){
   if(!S.cart.length){ toast('Cart is empty'); return; }
-  if(!S.shop.allowCredit && (S.payType==='Partial'||S.payType==='Credit')){ toast('Credit sales are turned off in Settings'); return; }
-  for(var ci0=0; ci0<S.cart.length; ci0++){ var pp0=prod(S.cart[ci0].id); if(pp0 && !S.shop.allowNegStock && S.cart[ci0].qty>pp0.stock){ toast('Only '+pp0.stock+' in stock for '+pp0.name); return; } }
   var t=cartTotals();
+  var method=S.payMethod||'cash';
+  var _pi=$('payPaidIn'); if(_pi) S.payPaid=_pi.value;
+  var _ni=$('payNotesIn'); if(_ni) S.payNotes=_ni.value;
   var cust=(S.posCustomer==='walkin')?null:custById(S.posCustomer);
-  if((S.payType==='Partial'||S.payType==='Credit') && !cust){ toast('Select a named customer for partial / credit sales'); return; }
-  var paid=t.grand;
-  if(S.payType==='Partial'){ paid=num(($('paidAmt')||{}).value); if(paid<=0||paid>=t.grand){ toast('Enter a partial amount between 1 and the total'); return; } }
-  if(S.payType==='Credit') paid=0;
-  var cashReceived=0;
-  if(S.payType==='Cash'){ cashReceived=num(($('cashAmt')||{}).value); }
-  var payMethod=(S.payType==='Credit')?'credit':'cash';
-  var payStatus=(S.payType==='Cash')?'paid':(S.payType==='Partial'?'partial':'unpaid');
+  function fail(msg){ S.payError=msg; openModal(payModalHTML()); }
+  for(var ci0=0; ci0<S.cart.length; ci0++){ var pp0=prod(S.cart[ci0].id); if(pp0 && !S.shop.allowNegStock && S.cart[ci0].qty>pp0.stock){ fail('Only '+pp0.stock+' in stock for '+pp0.name); return; } }
+  if(method==='credit'){
+    if(!S.shop.allowCredit){ fail('Credit sales are turned off in Settings'); return; }
+    if(!cust){ fail('Credit sales require selecting an identified customer, not walk-in.'); return; }
+    if(cust.due+t.grand>cust.creditLimit){ fail('Customer credit limit exceeded! Limit: '+fmt(cust.creditLimit)+', Current Due: '+fmt(cust.due)); return; }
+  }
+  var paid=0, cashReceived=0;
+  if(method==='credit'){ paid=0; }
+  else {
+    paid=num(S.payPaid);
+    if(paid<=0 || paid<t.grand){ fail('Paid amount must be at least the grand total ('+fmt(t.grand)+').'); return; }
+    cashReceived=paid;
+  }
+  var payLabel2 = method==='credit'?'Credit':method==='card'?'Card':method==='bank'?'Bank':'Cash';
+  var payStatus = method==='credit'?'unpaid':'paid';
   var due=t.grand-paid;
-  press(btn,'Processing…');
+  press(btn,'Processing Sale...');
   var saleId=rid('sale_',10);
   var inv='';
   var items=S.cart.map(function(ci){ var p=prod(ci.id); return {productId:p.id, productName:p.name, quantity:ci.qty, unitPrice:p.sell, totalPrice:p.sell*ci.qty*(1-(ci.disc||0)/100), cost:p.buy*ci.qty, disc:ci.disc||0}; });
@@ -1088,7 +1234,7 @@ function completeSale(btn){
       var prodRefs=S.cart.map(function(ci){ return doc(db,'shops',S.shopId,'products',ci.id); });
       var gets=prodRefs.map(function(r){ return tx.get(r); });
       return Promise.all(gets).then(function(snaps){
-        var salePayload={shopId:S.shopId, invoiceNumber:inv, cashierId:S.user.uid, cashierName:S.user.name||'', customerId:cust?cust.id:'', customerName:cust?cust.name:'Walk-in', customerPhone:cust?cust.phone:'', items:items.map(function(it){ return {productId:it.productId, productName:it.productName, quantity:it.quantity, unitPrice:it.unitPrice, totalPrice:it.totalPrice, cost:it.cost, disc:it.disc}; }), subtotal:t.sub, discount:t.discAmt, tax:t.tax, total:t.grand, paidAmount:paid, changeAmount:Math.max(0,cashReceived-t.grand), paymentMethod:payMethod, paymentStatus:payStatus, notes:'', cost:t.cost, createdAt:serverTimestamp()};
+        var salePayload={shopId:S.shopId, invoiceNumber:inv, cashierId:S.user.uid, cashierName:S.user.name||'', customerId:cust?cust.id:'', customerName:cust?cust.name:'Walk-in', customerPhone:cust?cust.phone:'', items:items.map(function(it){ return {productId:it.productId, productName:it.productName, quantity:it.quantity, unitPrice:it.unitPrice, totalPrice:it.totalPrice, cost:it.cost, disc:it.disc}; }), subtotal:t.sub, discount:t.discAmt, tax:t.tax, total:t.grand, paidAmount:paid, changeAmount:Math.max(0,cashReceived-t.grand), paymentMethod:method, paymentStatus:payStatus, notes:S.payNotes||'', cost:t.cost, createdAt:serverTimestamp()};
         tx.set(doc(db,'shops',S.shopId,'sales',saleId), salePayload);
         tx.update(shopRef, {lastSaleNo:nextNo, updatedAt:serverTimestamp()});
         S.cart.forEach(function(ci, idx){
@@ -1104,28 +1250,54 @@ function completeSale(btn){
       });
     });
   }).then(function(){
-    var sale={id:saleId, inv:inv, ts:Date.now(), off:0, items:items.map(function(it){ return {name:it.productName, qty:it.quantity, price:it.unitPrice, cost:it.cost, disc:it.disc}; }), total:t.grand, cost:t.cost, cust:cust?cust.name:'Walk-in', pay:S.payType, disc:t.discAmt, tax:t.tax, paid:paid};
-    S.cart=[]; S.invDisc=0; S.paidAmt=''; S.lastSale=sale; go('receipt');
-  }).catch(function(e){ unpress(btn); toast(e&&e.message?e.message:'Sale failed — try again'); });
+    var sale={id:saleId, inv:inv, ts:Date.now(), off:0, items:items.map(function(it){ return {name:it.productName, qty:it.quantity, price:it.unitPrice, cost:it.cost, disc:it.disc}; }), total:t.grand, cost:t.cost, cust:cust?cust.name:'Walk-in', custId:cust?cust.id:'', custPhone:cust?cust.phone:'', pay:payLabel2, payMethod:method, disc:t.discAmt, tax:t.tax, paid:paid, change:Math.max(0, cashReceived-t.grand), subtotal:t.sub};
+    S.cart=[]; S.invDisc=0; S.paidAmt=''; S.payPaid=''; S.payNotes=''; S.payMethod='cash'; S.payError=''; S.posTab='catalog'; S.lastSale=sale; closeModal(); go('receipt');
+  }).catch(function(e){ unpress(btn); fail(e&&e.message?e.message:'Sale failed — try again'); });
 }
 function vReceipt(){
   var s=S.lastSale; if(!s) return vDashboard();
-  var h=topbar('Sale Completed','Invoice #'+s.inv,'dashboard');
-  var r='<div class="receipt"><h4>'+esc(S.shop.name)+'</h4><div class="c small">'+esc(S.shop.address)+'<br>'+esc(S.shop.phone)+'</div><hr>'
-    +'<div>Invoice #'+s.inv+' &nbsp; '+tstr(s.ts)+'<br>Customer: '+esc(s.cust)+' &nbsp;·&nbsp; '+s.pay+'</div><hr>'
-    +'<table><tr><th>Item</th><th class="num">Qty</th><th class="num">Amount</th></tr>'
-    +s.items.map(function(it){ return '<tr><td>'+esc(it.name)+'</td><td class="num">'+it.qty+'</td><td class="num">'+fmt(it.price*it.qty*(1-(it.disc||0)/100))+'</td></tr>'; }).join('')
+  var h=topbar('Sale Completed Successfully!','Invoice #'+s.inv,'dashboard');
+  var r='<div class="card" style="background:var(--emerald-soft); text-align:center; margin-top:14px;"><div style="font-size:34px;">✅</div>'
+    +'<div style="font-weight:800; font-size:15.5px; margin-top:4px;">Grand Total: '+fmt(s.total)+'</div>'
+    +'<div class="muted" style="margin-top:2px;">Paid: '+fmt(s.paid)+' · Change: '+fmt(s.change||0)+'</div></div>';
+  r+='<div class="receipt"><h4>'+esc(S.shop.name)+'</h4><div class="c small">'+esc(S.shop.address)+'<br>'+esc(S.shop.phone)+'</div><hr>'
+    +'<div>Invoice #: <b>'+esc(s.inv)+'</b></div><div>Date &amp; Time: '+tstr(s.ts)+'</div><div>Customer: <b>'+esc(s.cust)+'</b></div><div>Payment Mode: <b>'+esc((s.pay||'Cash').toUpperCase())+'</b></div><hr>'
+    +'<table><tr><th>Item</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Total</th></tr>'
+    +s.items.map(function(it){ return '<tr><td>'+esc(it.name)+'</td><td class="num">'+it.qty+'</td><td class="num">'+fmt(it.price)+'</td><td class="num">'+fmt(it.price*it.qty*(1-(it.disc||0)/100))+'</td></tr>'; }).join('')
     +'</table><hr>'
+    +'<div>Subtotal: '+fmt(s.subtotal!=null?s.subtotal:s.total)+'</div>'
     +(s.disc?'<div>Discount: − '+fmt(s.disc)+'</div>':'')
-    +'<div>Tax: '+fmt(s.tax||0)+'</div><div><b>Grand Total: '+fmt(s.total)+'</b></div>'
-    +'<div>Paid: '+fmt(s.paid)+' &nbsp; Due: '+fmt(s.total-s.paid)+'</div><hr><div class="c">Thank you for shopping with us!</div></div>';
-  var inner=r+'<div class="grid2" style="margin-top:14px;"><button class="btn ghost" onclick="printReceipt()">🖨️ Print</button>'
-    +'<button class="btn ghost" onclick="downloadReceiptPDF(this)">⬇️ PDF</button></div>'
-    +'<button class="btn block" style="margin-top:10px;" onclick="go(\'pos\')">New Sale</button>'
+    +(s.tax?'<div>Tax: +'+fmt(s.tax)+'</div>':'')
+    +'<div><b>Grand Total: '+fmt(s.total)+'</b></div>'
+    +'<div>Paid Amount: '+fmt(s.paid)+'</div>'
+    +((s.change||0)>0?'<div>Change Returned: '+fmt(s.change)+'</div>':'')
+    +'<hr><div class="c">Thank you for shopping with us! Visit again.</div></div>';
+  var inner=r+'<div class="grid2" style="margin-top:14px;"><button class="btn" style="background:#0c2b28; color:#fff;" onclick="downloadReceiptPDF(this)">🖨️ Print Thermal (80mm)</button>'
+    +'<button class="btn emerald" onclick="printA4Invoice()">📄 Print A4 Invoice</button></div>'
+    +'<button class="btn emerald block" style="margin-top:10px;" onclick="startNextSale()">Start Next Sale</button>'
     +'<button class="btn ghost block" style="margin-top:8px;" onclick="go(\'dashboard\')">Back to Dashboard</button>';
   return shell(h+pad(inner),'pos');
 }
-
+function startNextSale(){ S.posTab='catalog'; go('pos'); }
+function printA4Invoice(){
+  var s=S.lastSale; if(!s){ toast('No invoice to print yet'); return; }
+  var sub=(s.subtotal!=null)?s.subtotal:s.items.reduce(function(a,it){ return a+it.price*it.qty*(1-(it.disc||0)/100); },0);
+  var rows=s.items.map(function(it,i){ return '<tr><td>'+(i+1)+'</td><td>'+esc(it.name)+'</td><td class="num">'+fmt(it.price)+'</td><td class="num">'+it.qty+'</td><td class="num">'+fmt(it.price*it.qty*(1-(it.disc||0)/100))+'</td></tr>'; }).join('');
+  var html='<div class="a4-banner"><div style="display:flex; justify-content:space-between; gap:12px;"><div><h2>'+esc(S.shop.name||'ShopFlow')+'</h2><div class="sub">OFFICIAL SALE INVOICE</div></div>'
+    +'<div class="meta">Invoice #: '+esc(s.inv)+'<br>Date: '+tstr(s.ts)+'</div></div></div>'
+    +'<div class="a4-meta"><div><b>Billed From:</b><br>'+esc(S.shop.name||'')+'<br>'+esc(S.shop.address||'')+(S.shop.phone?'<br>Phone: '+esc(S.shop.phone):'')+'</div>'
+    +'<div style="text-align:right;"><b>Billed To:</b><br>'+esc(s.cust||'Walk-in Customer')+(s.custPhone?'<br>Phone: '+esc(s.custPhone):'')+'</div></div>'
+    +'<table><tr><th>#</th><th>Item Description</th><th class="num">Price (PKR)</th><th class="num">Qty</th><th class="num">Total (PKR)</th></tr>'+rows+'</table>'
+    +'<div class="a4-sum"><div class="row"><span>Subtotal:</span><span>'+fmt(sub)+'</span></div>'
+    +(s.disc?'<div class="row"><span>Discount:</span><span>-'+fmt(s.disc)+'</span></div>':'')
+    +(s.tax?'<div class="row"><span>Sales Tax:</span><span>+'+fmt(s.tax)+'</span></div>':'')
+    +'<div class="row grand"><span>Grand Total:</span><span>'+fmt(s.total)+'</span></div>'
+    +'<div class="row"><span>Paid ('+esc(s.pay||'Cash')+'):</span><span>'+fmt(s.paid)+'</span></div>'
+    +((s.change||0)>0?'<div class="row"><span>Change Returned:</span><span>'+fmt(s.change)+'</span></div>':'')
+    +'</div>'
+    +'<div class="a4-foot">Thank you for shopping with us! Visit again.</div>';
+  printHTML(html,'a4');
+}
 /* ================= PRODUCTS ================= */
 function vProducts(){
   var cats=['All'].concat(S.categories.map(function(c){return c.name;}));
@@ -1668,7 +1840,7 @@ try{ var savedTheme=localStorage.getItem('shopflow_theme'); if(savedTheme==='dar
    saves on Confirm. All visible text is English. */
 var CHAT={open:false, greeted:false, busy:false, pending:null, typingEl:null};
 var CHAT_SCREENS=['dashboard','pos','receipt','products','productForm','categories','purchases','purchaseForm','inventory','sales','saleDetail','customers','customerDetail','suppliers','supplierDetail','expenses','reports','employees','subscription','admin','profile','settings'];
-function chatVisible(){ return !!(S.user && S.shopId && !S.loading && CHAT_SCREENS.indexOf(S.screen)>=0); }
+function chatVisible(){ return !!(S.user && S.shopId && !S.loading && CHAT_SCREENS.indexOf(S.screen)>=0) && !(S.screen==='pos' && S.posTab==='catalog' && S.cart.length>0); }
 function chatFabSync(){ var f=$('chatFab'); if(!f) return; f.style.display=chatVisible()?'':'none'; if(!chatVisible() && CHAT.open) chatClose(); }
 function chatToggle(){ if(CHAT.open) chatClose(); else chatOpen(); }
 function chatOpen(){ CHAT.open=true; $('chatPanel').classList.add('open'); $('chatFab').textContent='✕'; if(!CHAT.greeted){ CHAT.greeted=true; chatBot('Hello! I am your shop assistant.\nTry: "Atta 5kg, Rs 450, 20 packets add karo" or "What were today\'s sales?"'); } setTimeout(function(){ var i=$('chatInput'); if(i) i.focus(); },60); chatScroll(); }
@@ -2088,7 +2260,7 @@ function vImport(){
   return shell(h+pad(inner),'profile');
 }
 /* expose handlers for inline onclick attributes (module scope is not global) */
-Object.assign(window, {S:S, render:render, go:go, setOnboard:setOnboard, onboardNext:onboardNext, toggleNotif:toggleNotif, setAuth:setAuth, doLogin:doLogin, forgotPassword:forgotPassword, launchShop:launchShop, setDashFilter:setDashFilter, refreshPOSList:refreshPOSList, addToCart:addToCart, chgQty:chgQty, removeCart:removeCart, setItemDisc:setItemDisc, updChange:updChange, completeSale:completeSale, saveProduct:saveProduct, adjustStockPrompt:adjustStockPrompt, saveAdjustment:saveAdjustment, archiveProduct:archiveProduct, addCat:addCat, renameCat:renameCat, saveCat:saveCat, deleteCat:deleteCat, newPurchase:newPurchase, setPurProd:setPurProd, addPurLine:addPurLine, completePurchase:completePurchase, collectPayment:collectPayment, paySupplier:paySupplier, addCustomer:addCustomer, addSupplier:addSupplier, addExpense:addExpense, toggleEmp:toggleEmp, addEmployee:addEmployee, choosePlan:choosePlan, submitPayment:submitPayment, adminPay:adminPay, logout:logout, setTheme:setTheme, closeModal:closeModal, chatToggle:chatToggle, chatSend:chatSend, chatChip:chatChip, chatConfirm:chatConfirm, chatCancel:chatCancel, toast:toast, exportSalesCSV:exportSalesCSV, exportProductsCSV:exportProductsCSV, exportCustomersCSV:exportCustomersCSV, downloadBackup:downloadBackup, saveShopSettings:saveShopSettings, googleLogin:googleLogin, downloadReceiptPDF:downloadReceiptPDF, printReceipt:printReceipt, printSaleReceipt:printSaleReceipt, printCustomerReceipt:printCustomerReceipt, printCustomerStatement:printCustomerStatement, downloadReportPDF:downloadReportPDF, openScreenshotPicker:openScreenshotPicker, attachScreenshot:attachScreenshot, viewScreenshot:viewScreenshot, changePasswordPrompt:changePasswordPrompt, changePassword:changePassword, press:press, unpress:unpress, impFilePicked:impFilePicked, impParsePasted:impParsePasted, impRowEdit:impRowEdit, impRemoveRow:impRemoveRow, impConfirm:impConfirm, impReset:impReset});
+Object.assign(window, {S:S, render:render, go:go, setOnboard:setOnboard, onboardNext:onboardNext, toggleNotif:toggleNotif, setAuth:setAuth, doLogin:doLogin, forgotPassword:forgotPassword, launchShop:launchShop, setDashFilter:setDashFilter, refreshPOSList:refreshPOSList, posSetTab:posSetTab, posScan:posScan, openPayModal:openPayModal, setPayMethod:setPayMethod, updPayChange:updPayChange, posAddCustomer:posAddCustomer, posSaveCustomer:posSaveCustomer, clearCart:clearCart, startNextSale:startNextSale, printA4Invoice:printA4Invoice, addToCart:addToCart, chgQty:chgQty, removeCart:removeCart, setItemDisc:setItemDisc, updChange:updChange, completeSale:completeSale, saveProduct:saveProduct, adjustStockPrompt:adjustStockPrompt, saveAdjustment:saveAdjustment, archiveProduct:archiveProduct, addCat:addCat, renameCat:renameCat, saveCat:saveCat, deleteCat:deleteCat, newPurchase:newPurchase, setPurProd:setPurProd, addPurLine:addPurLine, completePurchase:completePurchase, collectPayment:collectPayment, paySupplier:paySupplier, addCustomer:addCustomer, addSupplier:addSupplier, addExpense:addExpense, toggleEmp:toggleEmp, addEmployee:addEmployee, choosePlan:choosePlan, submitPayment:submitPayment, adminPay:adminPay, logout:logout, setTheme:setTheme, closeModal:closeModal, chatToggle:chatToggle, chatSend:chatSend, chatChip:chatChip, chatConfirm:chatConfirm, chatCancel:chatCancel, toast:toast, exportSalesCSV:exportSalesCSV, exportProductsCSV:exportProductsCSV, exportCustomersCSV:exportCustomersCSV, downloadBackup:downloadBackup, saveShopSettings:saveShopSettings, googleLogin:googleLogin, downloadReceiptPDF:downloadReceiptPDF, printReceipt:printReceipt, printSaleReceipt:printSaleReceipt, printCustomerReceipt:printCustomerReceipt, printCustomerStatement:printCustomerStatement, downloadReportPDF:downloadReportPDF, openScreenshotPicker:openScreenshotPicker, attachScreenshot:attachScreenshot, viewScreenshot:viewScreenshot, changePasswordPrompt:changePasswordPrompt, changePassword:changePassword, press:press, unpress:unpress, impFilePicked:impFilePicked, impParsePasted:impParsePasted, impRowEdit:impRowEdit, impRemoveRow:impRemoveRow, impConfirm:impConfirm, impReset:impReset});
 /* cached shop: the welcome IS the loading screen — show it at once while auth resolves */
 (function(){ var c=readCachedShop(); if(c){ S.shop=Object.assign(defaultShop(), {name:c.name, category:c.category||'', address:c.address||''}); S.welcomed=true; S.screen='welcome'; startWelcome(); } })();
 initAuth();
