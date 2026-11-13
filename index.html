@@ -13,6 +13,8 @@
 <meta name="apple-mobile-web-app-title" content="ShopFlow" />
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <title>ShopFlow Android App Modern</title>
 <style>
   :root{
@@ -334,6 +336,10 @@
   .chat-composer input{flex:1; min-width:0; margin:0;}
   .chat-composer .btn{min-height:44px; padding:0 18px;}
   @media (prefers-reduced-motion:reduce){ *{transition:none !important;} }
+  /* ================= BULK PRODUCT IMPORT ================= */
+  .imp-row label{margin-top:10px;}
+  .imp-row input,.imp-row select{margin-top:4px;}
+  .imp-sticky{position:sticky; bottom:12px; z-index:5; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:12px; box-shadow:var(--shadow); margin-top:14px;}
 </style>
 </head>
 <body>
@@ -1592,7 +1598,7 @@ function vProfile(){
     +'<button class="menu-item" onclick="go(\'subscription\')"><span class="ic">💳</span>Subscription &amp; Plans<span class="arr">›</span></button>'
     +'<button class="menu-item" onclick="go(\'employees\')"><span class="ic">🧑‍💼</span>Employees &amp; Roles<span class="arr">›</span></button>'
     +'<button class="menu-item" onclick="go(\'purchases\')"><span class="ic">🚚</span>Purchases<span class="arr">›</span></button>'
-    +'<button class="menu-item" onclick="go(\'admin\')"><span class="ic">🛡️</span>Super Admin Panel<span class="arr">›</span></button>'
+    +'<button class="menu-item" onclick="go(\'import\')"><span class="ic">📥</span>Import<span class="arr">›</span></button>'
     +'<button class="menu-item" onclick="go(\'setup\')"><span class="ic">🏪</span>Shop Setup<span class="arr">›</span></button>'
     +'</div>';
   inner+='<div class="card" style="padding-top:4px;padding-bottom:4px;">'
@@ -1640,7 +1646,7 @@ var VIEWS={ loading:vLoading, login:vLogin, onboard:vOnboard, welcome:vWelcome, 
   purchaseForm:vPurchaseForm, inventory:vInventory, sales:vSales, saleDetail:vSaleDetail,
   customers:vCustomers, customerDetail:vCustomerDetail, suppliers:vSuppliers, supplierDetail:vSupplierDetail,
   expenses:vExpenses, reports:vReports, employees:vEmployees, subscription:vSubscription,
-  admin:vAdmin, profile:vProfile, settings:vSettings };
+  admin:vAdmin, profile:vProfile, settings:vSettings, import:vImport };
 function editProductView(){ return editProduct(S.editProdId); }
 function vLoading(){ return '<div class="scroll no-nav"><div class="auth-hero"><div class="logo">🛒</div><h1>ShopFlow</h1><p>Loading your shop…</p></div></div>'; }
 function render(){ if(S.screen!=='welcome') stopWelcomeTimers(); if(S.loading && S.screen!=='login' && S.screen!=='welcome'){ $('app').innerHTML=vLoading(); chatFabSync(); return; } $('app').innerHTML = VIEWS[S.screen] ? VIEWS[S.screen]() : vDashboard(); chatFabSync(); }
@@ -1781,8 +1787,298 @@ function chatDoRecordSale(e){
     chatBot('Done! Sale recorded — '+e.quantity+' x '+e.productName+' for '+fmt(e.total)+' (Invoice '+inv+', Cash).'); toast('Sale recorded');
   }).catch(function(err){ chatBot('Sorry, the sale could not be recorded. '+(err&&err.message?err.message:'Please try again.')); toast(authErrorMessage(err)); });
 }
+/* ================= BULK PRODUCT IMPORT =================
+   Upload a products list (Text, JSON, Excel, CSV or PDF) or paste it as
+   text. Columns are matched by header name, never by position:
+   Product ID, Category, Product Name, Purchase Price (PKR),
+   Selling Price (PKR), Stock Quantity, Description.
+   Review, edit, confirm once, then import into the real shop —
+   missing categories are auto-created, existing products are updated,
+   never duplicated. All visible text is English. */
+var IMP={rows:[], fileName:'', done:null, busy:false, _byCode:null, _byName:null, _catCache:null};
+var IMP_KEYWORDS=[[/atta|flour|maida/i,'Flour & Grains'],[/sugar|cheeni|gur|shakkar/i,'Sugar & Sweeteners'],[/oil|ghee/i,'Cooking Oil & Ghee'],[/milk|doodh|dahi|egg|anda|butter|cheese/i,'Dairy & Eggs'],[/tea|chai|coffee|juice|drink|cola|water/i,'Beverages'],[/biscuit|chips|namkeen|snack|candy|chocolate/i,'Snacks & Biscuits'],[/masala|spice|haldi|mirch|salt|namak/i,'Spices & Masala'],[/rice|chawal|daal|dal|pulse|bean/i,'Rice & Pulses'],[/soap|shampoo|toothpaste|cream|lotion/i,'Personal Care'],[/detergent|surf|phenyl/i,'Household'],[/mobile|phone|samsung|iphone|redmi|infinix|tecno|vivo|oppo|realme/i,'Mobile Phones'],[/charger|adapter/i,'Mobile Chargers'],[/cable|connector|type-c|usb/i,'Data Cables & Connectors'],[/earphone|headphone|earbud|handsfree|cover|protector/i,'Mobile Accessories'],[/fan|cooler|heater|iron|kettle/i,'Fans, Coolers & Heaters']];
+function impGuessCat(name){ for(var i=0;i<IMP_KEYWORDS.length;i++) if(IMP_KEYWORDS[i][0].test(name)) return IMP_KEYWORDS[i][1]; return 'General'; }
+function impNum(v){ var s=String(v==null?'':v).replace(/[^0-9.\-]/g,''); var n=parseFloat(s); return isNaN(n)?0:n; }
+function impClean(s){ return String(s==null?'':s).trim(); }
+function impSplitCSV(text){
+  var rows=[], row=[], cur='', q=false;
+  for(var i=0;i<text.length;i++){
+    var c=text[i];
+    if(q){
+      if(c==='"'){ if(text[i+1]==='"'){ cur+='"'; i++; } else q=false; }
+      else cur+=c;
+    } else if(c==='"'){ q=true; }
+    else if(c===','){ row.push(cur); cur=''; }
+    else if(c==='\n' || c==='\r'){ if(c==='\r' && text[i+1]==='\n') i++; row.push(cur); cur=''; rows.push(row); row=[]; }
+    else cur+=c;
+  }
+  if(cur!=='' || row.length){ row.push(cur); rows.push(row); }
+  return rows.filter(function(r){ return r.some(function(x){ return String(x).trim()!==''; }); });
+}
+function impHeaderMap(header){
+  var m={};
+  header.forEach(function(h,i){
+    var k=impClean(h).toLowerCase();
+    if(/product\s*id|sku|^code$/.test(k)) m.code=i;
+    else if(/product\s*name|^name$/.test(k)) m.name=i;
+    else if(/categor/.test(k)) m.cat=i;
+    else if(/purchase\s*price|cost/.test(k)) m.buy=i;
+    else if(/selling\s*price|sale\s*price|^price$/.test(k)) m.sell=i;
+    else if(/stock|quantity|qty/.test(k)) m.stock=i;
+    else if(/description|desc|details/.test(k)) m.desc=i;
+    else if(/unit/.test(k)) m.unit=i;
+  });
+  return m;
+}
+function impRowFromCells(c, m, curCat){
+  var g=function(idx){ return idx==null?'':impClean(c[idx]); };
+  var name=g(m.name);
+  if(!name) return null;
+  return {code:g(m.code), name:name, cat:g(m.cat)||curCat||'General', sell:impNum(g(m.sell)), buy:impNum(g(m.buy)), stock:impNum(g(m.stock)), unit:g(m.unit)||'piece', desc:g(m.desc)};
+}
+function impParseParts(parts, curCat){
+  var r={code:'', name:'', cat:curCat||'General', sell:0, buy:0, stock:0, unit:'piece', desc:''};
+  var first=impClean(parts[0]);
+  var cm=first.match(/^([A-Za-z]{2,}-?\d+)\s*[,|\-–—]?\s*/);
+  if(cm){ r.code=cm[1]; first=first.slice(cm[0].length).trim(); }
+  r.name=first;
+  for(var i=1;i<parts.length;i++){
+    var p=impClean(parts[i]); if(!p) continue;
+    var known=null;
+    S.categories.forEach(function(c){ if(c.name.toLowerCase()===p.toLowerCase()) known=c.name; });
+    if(known){ r.cat=known; continue; }
+    var pm=p.match(/Rs\.?\s*([\d,]+(?:\.\d+)?)/i);
+    if(pm){ r.sell=impNum(pm[1]); continue; }
+    var sm=p.match(/(\d+)\s*(pcs|pieces|packets?|units?|qty|stock)\b/i);
+    if(sm){ r.stock=impNum(sm[1]); continue; }
+    if(/^\d[\d,]*(\.\d+)?$/.test(p)){ if(!r.sell) r.sell=impNum(p); else if(!r.stock) r.stock=impNum(p); continue; }
+    if(!r.desc) r.desc=p; else r.desc+=' '+p;
+  }
+  if(!r.name) return null;
+  if(r.cat==='General') r.cat=impGuessCat(r.name);
+  return r;
+}
+function impParseTextLine(line, curCat){
+  var s=impClean(line); if(!s) return null;
+  var code='';
+  var cm=s.match(/^([A-Za-z]{2,}-?\d+)\s*[,|\-–—]?\s*/);
+  if(cm){ code=cm[1]; s=s.slice(cm[0].length).trim(); }
+  var sell=0, stock=0;
+  var pm=s.match(/Rs\.?\s*([\d,]+(?:\.\d+)?)/i);
+  if(pm){ sell=impNum(pm[1]); s=s.replace(pm[0],'').trim(); }
+  var sm=s.match(/(\d+)\s*(pcs|pieces|packets?|units?|qty|stock)\b/i);
+  if(sm){ stock=impNum(sm[1]); s=s.replace(sm[0],'').trim(); }
+  if(!sell){ var tm=s.match(/(?:^|\s)([\d,]+(?:\.\d+)?)\s*$/); if(tm){ sell=impNum(tm[1]); s=s.slice(0, tm.index).trim(); } }
+  s=s.replace(/[,|;]+$/,'').trim();
+  if(!s) return null;
+  return {code:code, name:s, cat:curCat||impGuessCat(s), sell:sell, buy:0, stock:stock, unit:'piece', desc:''};
+}
+function impParseText(text){
+  var rows=[]; var curCat='General';
+  String(text||'').split(/\r?\n/).forEach(function(line){
+    var s=impClean(line); if(!s) return;
+    var cm=s.match(/^CATEGORY\s*:\s*(.+)$/i);
+    if(cm){ curCat=cm[1].trim(); return; }
+    var r=impParseTextLine(s, curCat); if(r) rows.push(r);
+  });
+  return rows;
+}
+function impParseGrid(grid){
+  var rows=[]; var curCat='General';
+  var start=0, m=null;
+  if(grid.length){
+    var h0=grid[0].map(function(x){ return impClean(x).toLowerCase(); }).join(' ');
+    if(/product\s*name|product\s*id/.test(h0)){ m=impHeaderMap(grid[0]); start=1; }
+  }
+  for(var i=start;i<grid.length;i++){
+    var cells=grid[i];
+    var first=impClean(cells[0]);
+    var cm=first.match(/^CATEGORY\s*:\s*(.+)$/i);
+    if(cm){ curCat=cm[1].trim(); continue; }
+    if(m){ var r=impRowFromCells(cells, m, curCat); if(r) rows.push(r); }
+    else if(cells.length===1){ var r2=impParseTextLine(cells[0], curCat); if(r2) rows.push(r2); }
+    else { var r3=impParseParts(cells, curCat); if(r3) rows.push(r3); }
+  }
+  return rows;
+}
+function impParseJSON(data){
+  var arr=Array.isArray(data)?data:(data.products||data.items||[]);
+  return arr.map(function(o){
+    var get=function(keys){ for(var i=0;i<keys.length;i++){ var v=o[keys[i]]; if(v!=null && String(v).trim()!=='') return v; } return ''; };
+    var name=impClean(get(['productName','name','product','title']));
+    if(!name) return null;
+    return {code:impClean(get(['productId','product_id','sku','code'])), name:name, cat:impClean(get(['category','categoryName','cat']))||'General', sell:impNum(get(['sellingPrice','salePrice','price','selling_price'])), buy:impNum(get(['purchasePrice','cost','buyPrice','purchase_price'])), stock:impNum(get(['stock','stockQuantity','quantity','qty'])), unit:impClean(get(['unit']))||'piece', desc:impClean(get(['description','desc']))};
+  }).filter(Boolean);
+}
+function impParseExcel(buf){
+  if(typeof XLSX==='undefined'){ toast('Excel library could not load — check connection and try again'); return; }
+  try{
+    var wb=XLSX.read(buf,{type:'array'});
+    var ws=wb.Sheets[wb.SheetNames[0]];
+    var grid=XLSX.utils.sheet_to_json(ws,{header:1, raw:false, defval:''});
+    impSetRows(impParseGrid(grid));
+  }catch(e){ toast('Could not read this Excel file'); }
+}
+function impParsePDF(buf){
+  if(typeof pdfjsLib==='undefined'){ toast('PDF library could not load — check connection and try again'); return; }
+  try{ pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }catch(e){}
+  pdfjsLib.getDocument({data:buf}).promise.then(function(pdf){
+    var ps=[];
+    for(var p=1;p<=pdf.numPages;p++) ps.push(pdf.getPage(p).then(function(page){
+      return page.getTextContent().then(function(tc){
+        var rows={};
+        tc.items.forEach(function(it){ var y=Math.round(it.transform[5]); (rows[y]=rows[y]||[]).push(it); });
+        return Object.keys(rows).sort(function(a,b){ return b-a; }).map(function(y){
+          return rows[y].sort(function(a,b){ return a.transform[4]-b.transform[4]; }).map(function(it){ return it.str; }).join(' ');
+        }).join('\n');
+      });
+    }));
+    return Promise.all(ps);
+  }).then(function(pages){ impSetRows(impParseText(pages.join('\n'))); }).catch(function(){ toast('Could not read this PDF'); });
+}
+function impHandleText(text, ext){
+  var t=String(text||'');
+  if(ext==='json'){
+    try{ impSetRows(impParseJSON(JSON.parse(t))); }catch(e){ toast('Could not read this JSON file'); }
+    return;
+  }
+  if(t.indexOf(',')>=0 || t.indexOf('\t')>=0){
+    var g=impSplitCSV(t.replace(/\t/g,','));
+    if(g.length){ impSetRows(impParseGrid(g)); return; }
+  }
+  impSetRows(impParseText(t));
+}
+function impFilePicked(input){
+  var f=input.files && input.files[0]; if(!f) return;
+  IMP.fileName=f.name;
+  var ext=f.name.split('.').pop().toLowerCase();
+  var rd=new FileReader();
+  if(ext==='xlsx'||ext==='xls'){ rd.onload=function(){ impParseExcel(new Uint8Array(rd.result)); }; rd.readAsArrayBuffer(f); }
+  else if(ext==='pdf'){ rd.onload=function(){ impParsePDF(new Uint8Array(rd.result)); }; rd.readAsArrayBuffer(f); }
+  else { rd.onload=function(){ impHandleText(rd.result, ext); }; rd.readAsText(f); }
+}
+function impParsePasted(){
+  var t=$('imp_text').value||'';
+  if(!t.trim()){ toast('Paste a products list first'); return; }
+  IMP.fileName='';
+  impHandleText(t, (t.trim().charAt(0)==='{'||t.trim().charAt(0)==='[')?'json':'txt');
+}
+function impFindExisting(r){
+  if(IMP._byCode && r.code && IMP._byCode[r.code]) return IMP._byCode[r.code];
+  if(IMP._byName){ var k=r.name.toLowerCase()+'|'+r.cat; if(IMP._byName[k]) return IMP._byName[k]; }
+  if(r.code){ for(var i=0;i<S.products.length;i++) if(S.products[i].sku===r.code) return S.products[i]; }
+  var nm=r.name.toLowerCase();
+  for(var j=0;j<S.products.length;j++) if(S.products[j].name.toLowerCase()===nm && S.products[j].cat===r.cat) return S.products[j];
+  return null;
+}
+function impSetRows(rows){
+  IMP.rows=rows.map(function(r){
+    var ex=impFindExisting(r);
+    r.dup=!!ex; r.exId=ex?ex.id:''; r.noPrice=!(r.sell>0);
+    return r;
+  });
+  IMP.done=null;
+  if(!IMP.rows.length) toast('No products found in this file');
+  else toast(IMP.rows.length+' products ready to review');
+  render();
+}
+function impRowEdit(i, f, v){
+  var r=IMP.rows[i]; if(!r) return;
+  if(f==='sell'||f==='buy'||f==='stock') r[f]=num(v); else r[f]=String(v).trim();
+  if(f==='name'||f==='cat'){ var ex=impFindExisting(r); r.dup=!!ex; r.exId=ex?ex.id:''; }
+  if(f==='sell') r.noPrice=!(r.sell>0);
+}
+function impRemoveRow(i){ IMP.rows.splice(i,1); render(); }
+function impReset(){ IMP.rows=[]; IMP.done=null; render(); }
+function impEnsureCat(name){
+  if(IMP._catCache && IMP._catCache[name]) return Promise.resolve(IMP._catCache[name]);
+  var c=catByName(name);
+  if(c){ if(IMP._catCache) IMP._catCache[name]=c.id; return Promise.resolve(c.id); }
+  var id=rid('cat_',8);
+  return setDoc(doc(db,'shops',S.shopId,'categories',id), {shopId:S.shopId, name:name, description:'', createdAt:serverTimestamp()}).then(function(){ if(IMP._catCache) IMP._catCache[name]=id; return id; });
+}
+function impConfirm(btn){
+  var rows=IMP.rows.filter(function(r){ return r.name; });
+  if(!rows.length){ toast('Nothing to import'); return; }
+  if(IMP.busy) return; IMP.busy=true;
+  press(btn,'Importing…');
+  IMP._byCode={}; IMP._byName={}; IMP._catCache={};
+  S.products.forEach(function(p){ if(p.sku) IMP._byCode[p.sku]=p; IMP._byName[p.name.toLowerCase()+'|'+p.cat]=p; });
+  S.categories.forEach(function(c){ IMP._catCache[c.name]=c.id; });
+  var done={added:0, updated:0, byCat:{}};
+  var i=0;
+  function note(){ var st=$('imp_status'); if(st) st.textContent='Importing '+Math.min(i,rows.length)+' of '+rows.length+'…'; }
+  function step(){
+    if(i>=rows.length){ finish(); return; }
+    var r=rows[i]; i++; note();
+    impEnsureCat(r.cat).then(function(catId){
+      var ex=impFindExisting(r);
+      var payload={shopId:S.shopId, name:r.name, barcode:'', sku:r.code||('SKU-'+rid('',6).toUpperCase()), categoryId:catId, categoryName:r.cat, supplierId:ex?ex.supplierId:'', purchasePrice:r.buy||0, salePrice:r.sell||0, quantity:r.stock||0, minStockAlert:S.shop.lowStock, unit:r.unit||'piece', expiryDate:'', imageUrl:'', status:'Active', updatedAt:serverTimestamp()};
+      if(ex){
+        var oldStock=ex.stock;
+        return updateDoc(doc(db,'shops',S.shopId,'products',ex.id), payload).then(function(){
+          if((r.stock||0)!==oldStock){
+            var delta=(r.stock||0)-oldStock;
+            return setDoc(doc(db,'shops',S.shopId,'inventory_transactions',rid('tx_',10)), {shopId:S.shopId, productId:ex.id, productName:r.name, type:delta>=0?'in':'out', quantityChange:delta, previousStock:oldStock, newStock:r.stock||0, reason:'Bulk import', performedBy:S.user.name||'Owner', createdAt:serverTimestamp()});
+          }
+        }).then(function(){ done.updated++; done.byCat[r.cat]=(done.byCat[r.cat]||0)+1; var np=Object.assign({}, ex, {name:r.name, sku:payload.sku, cat:r.cat, buy:r.buy||0, sell:r.sell||0, stock:r.stock||0}); IMP._byCode[payload.sku]=np; IMP._byName[r.name.toLowerCase()+'|'+r.cat]=np; });
+      }
+      var prodId=rid('prod_',8);
+      payload.createdAt=serverTimestamp();
+      return setDoc(doc(db,'shops',S.shopId,'products',prodId), payload).then(function(){
+        if((r.stock||0)>0) return setDoc(doc(db,'shops',S.shopId,'inventory_transactions',rid('tx_',10)), {shopId:S.shopId, productId:prodId, productName:r.name, type:'in', quantityChange:r.stock, previousStock:0, newStock:r.stock, reason:'Opening stock', performedBy:S.user.name||'Owner', createdAt:serverTimestamp()});
+      }).then(function(){ done.added++; done.byCat[r.cat]=(done.byCat[r.cat]||0)+1; var np2={id:prodId, name:r.name, sku:payload.sku, cat:r.cat, buy:r.buy||0, sell:r.sell||0, stock:r.stock||0, supplierId:''}; IMP._byCode[payload.sku]=np2; IMP._byName[r.name.toLowerCase()+'|'+r.cat]=np2; });
+    }).then(step).catch(function(e){ toast(authErrorMessage(e)); finish(); });
+  }
+  function finish(){
+    IMP.busy=false; IMP._byCode=null; IMP._byName=null; IMP._catCache=null;
+    IMP.done={added:done.added, updated:done.updated, cats:Object.keys(done.byCat).length, byCat:Object.keys(done.byCat).sort().map(function(k){ return {name:k, n:done.byCat[k]}; })};
+    IMP.rows=[];
+    toast('Import complete — '+IMP.done.added+' added, '+IMP.done.updated+' updated');
+    render();
+  }
+  step();
+}
+function impRowCard(r,i){
+  var opts=S.categories.map(function(c){ return '<option'+(c.name===r.cat?' selected':'')+'>'+esc(c.name)+'</option>'; }).join('');
+  if(!S.categories.some(function(c){ return c.name===r.cat; })) opts='<option selected>'+esc(r.cat)+'</option>'+opts;
+  return '<div class="card imp-row"><div class="row"><div class="grow"><div class="bold" style="font-size:14.5px;">'+esc(r.name)+(r.code?' <span class="muted">· '+esc(r.code)+'</span>':'')+'</div></div>'
+    +'<button class="btn sm ghost" onclick="impRemoveRow('+i+')">✕</button></div>'
+    +(r.dup?'<span class="badge b-amber">Will update existing product</span> ':'')+(r.noPrice?'<span class="badge b-red">No price</span>':'')
+    +'<label style="margin-top:10px;">Product name</label><input value="'+esc(r.name)+'" oninput="impRowEdit('+i+',\'name\',this.value)">'
+    +'<label>Category</label><select onchange="impRowEdit('+i+',\'cat\',this.value)">'+opts+'</select>'
+    +'<label>Description</label><input value="'+esc(r.desc)+'" oninput="impRowEdit('+i+',\'desc\',this.value)">'
+    +'<div class="grid2"><div><label>Sale Price (Rs)</label><input type="number" min="0" value="'+(r.sell||'')+'" oninput="impRowEdit('+i+',\'sell\',this.value)"></div>'
+    +'<div><label>Cost (Rs)</label><input type="number" min="0" value="'+(r.buy||'')+'" oninput="impRowEdit('+i+',\'buy\',this.value)"></div></div>'
+    +'<div class="grid2"><div><label>Stock</label><input type="number" min="0" value="'+(r.stock||'')+'" oninput="impRowEdit('+i+',\'stock\',this.value)"></div>'
+    +'<div><label>Unit</label><input value="'+esc(r.unit||'piece')+'" oninput="impRowEdit('+i+',\'unit\',this.value)"></div></div></div>';
+}
+function vImport(){
+  var h=topbar('Import Products','Bulk upload from Text, JSON, Excel or PDF','profile');
+  var inner='';
+  inner+='<div class="card"><h3>📥 Choose a file</h3>'
+    +'<p class="muted">Upload a products list as a Text, JSON, Excel (.xlsx / .xls), CSV or PDF file — or paste the list below. Columns are matched by header name: Product ID, Category, Product Name, Purchase Price (PKR), Selling Price (PKR), Stock Quantity, Description.</p>'
+    +'<input type="file" id="imp_file" accept=".txt,.json,.xlsx,.xls,.csv,.pdf" onchange="impFilePicked(this)">'
+    +'<label style="margin-top:12px;">Or paste your list</label><textarea id="imp_text" rows="4" placeholder="Product ID,Category,Product Name,Purchase Price (PKR),Selling Price (PKR),Stock Quantity,Description"></textarea>'
+    +'<button class="btn emerald block" style="margin-top:10px;" onclick="impParsePasted()">Parse pasted list</button></div>';
+  if(IMP.rows.length){
+    var cats={}; IMP.rows.forEach(function(r){ cats[r.cat]=1; });
+    var attn=IMP.rows.filter(function(r){ return r.noPrice; }).length;
+    inner+='<div class="card"><h3>📋 Review — '+IMP.rows.length+' products · '+Object.keys(cats).length+' categories'+(attn?' · '+attn+' need a price':'')+'</h3>'
+      +'<p class="muted">Check each product and fix anything. Products that already exist in your shop will be updated, not duplicated. Missing categories are created automatically.</p></div>';
+    inner+=IMP.rows.map(function(r,i){ return impRowCard(r,i); }).join('');
+    inner+='<div class="imp-sticky"><button class="btn emerald block" onclick="impConfirm(this)">⬇ Import '+IMP.rows.length+' products</button>'
+      +'<div class="muted" id="imp_status" style="margin-top:8px;text-align:center;"></div>'
+      +'<button class="btn ghost block" style="margin-top:8px;" onclick="impReset()">Clear list</button></div>';
+  }
+  if(IMP.done){
+    inner+='<div class="card"><h3>✅ Import complete</h3><p class="muted">'+IMP.done.added+' new products added · '+IMP.done.updated+' products updated · '+IMP.done.cats+' categories</p>'
+      +IMP.done.byCat.map(function(c){ return '<div class="list-item"><div class="grow">'+esc(c.name)+'</div><b>'+c.n+' products</b></div>'; }).join('')+'</div>';
+  }
+  return shell(h+pad(inner),'profile');
+}
 /* expose handlers for inline onclick attributes (module scope is not global) */
-Object.assign(window, {S:S, render:render, go:go, setOnboard:setOnboard, onboardNext:onboardNext, toggleNotif:toggleNotif, setAuth:setAuth, doLogin:doLogin, forgotPassword:forgotPassword, launchShop:launchShop, setDashFilter:setDashFilter, refreshPOSList:refreshPOSList, addToCart:addToCart, chgQty:chgQty, removeCart:removeCart, setItemDisc:setItemDisc, updChange:updChange, completeSale:completeSale, saveProduct:saveProduct, adjustStockPrompt:adjustStockPrompt, saveAdjustment:saveAdjustment, archiveProduct:archiveProduct, addCat:addCat, renameCat:renameCat, saveCat:saveCat, deleteCat:deleteCat, newPurchase:newPurchase, setPurProd:setPurProd, addPurLine:addPurLine, completePurchase:completePurchase, collectPayment:collectPayment, paySupplier:paySupplier, addCustomer:addCustomer, addSupplier:addSupplier, addExpense:addExpense, toggleEmp:toggleEmp, addEmployee:addEmployee, choosePlan:choosePlan, submitPayment:submitPayment, adminPay:adminPay, logout:logout, setTheme:setTheme, closeModal:closeModal, chatToggle:chatToggle, chatSend:chatSend, chatChip:chatChip, chatConfirm:chatConfirm, chatCancel:chatCancel, toast:toast, exportSalesCSV:exportSalesCSV, exportProductsCSV:exportProductsCSV, exportCustomersCSV:exportCustomersCSV, downloadBackup:downloadBackup, saveShopSettings:saveShopSettings, googleLogin:googleLogin, downloadReceiptPDF:downloadReceiptPDF, printReceipt:printReceipt, printSaleReceipt:printSaleReceipt, printCustomerReceipt:printCustomerReceipt, printCustomerStatement:printCustomerStatement, downloadReportPDF:downloadReportPDF, openScreenshotPicker:openScreenshotPicker, attachScreenshot:attachScreenshot, viewScreenshot:viewScreenshot, changePasswordPrompt:changePasswordPrompt, changePassword:changePassword, press:press, unpress:unpress});
+Object.assign(window, {S:S, render:render, go:go, setOnboard:setOnboard, onboardNext:onboardNext, toggleNotif:toggleNotif, setAuth:setAuth, doLogin:doLogin, forgotPassword:forgotPassword, launchShop:launchShop, setDashFilter:setDashFilter, refreshPOSList:refreshPOSList, addToCart:addToCart, chgQty:chgQty, removeCart:removeCart, setItemDisc:setItemDisc, updChange:updChange, completeSale:completeSale, saveProduct:saveProduct, adjustStockPrompt:adjustStockPrompt, saveAdjustment:saveAdjustment, archiveProduct:archiveProduct, addCat:addCat, renameCat:renameCat, saveCat:saveCat, deleteCat:deleteCat, newPurchase:newPurchase, setPurProd:setPurProd, addPurLine:addPurLine, completePurchase:completePurchase, collectPayment:collectPayment, paySupplier:paySupplier, addCustomer:addCustomer, addSupplier:addSupplier, addExpense:addExpense, toggleEmp:toggleEmp, addEmployee:addEmployee, choosePlan:choosePlan, submitPayment:submitPayment, adminPay:adminPay, logout:logout, setTheme:setTheme, closeModal:closeModal, chatToggle:chatToggle, chatSend:chatSend, chatChip:chatChip, chatConfirm:chatConfirm, chatCancel:chatCancel, toast:toast, exportSalesCSV:exportSalesCSV, exportProductsCSV:exportProductsCSV, exportCustomersCSV:exportCustomersCSV, downloadBackup:downloadBackup, saveShopSettings:saveShopSettings, googleLogin:googleLogin, downloadReceiptPDF:downloadReceiptPDF, printReceipt:printReceipt, printSaleReceipt:printSaleReceipt, printCustomerReceipt:printCustomerReceipt, printCustomerStatement:printCustomerStatement, downloadReportPDF:downloadReportPDF, openScreenshotPicker:openScreenshotPicker, attachScreenshot:attachScreenshot, viewScreenshot:viewScreenshot, changePasswordPrompt:changePasswordPrompt, changePassword:changePassword, press:press, unpress:unpress, impFilePicked:impFilePicked, impParsePasted:impParsePasted, impRowEdit:impRowEdit, impRemoveRow:impRemoveRow, impConfirm:impConfirm, impReset:impReset});
 /* cached shop: the welcome IS the loading screen — show it at once while auth resolves */
 (function(){ var c=readCachedShop(); if(c){ S.shop=Object.assign(defaultShop(), {name:c.name, category:c.category||'', address:c.address||''}); S.welcomed=true; S.screen='welcome'; startWelcome(); } })();
 initAuth();
