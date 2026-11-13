@@ -289,6 +289,50 @@
   .modal-wrap.show{display:flex;}
   .modal{background:var(--card); width:100%; max-height:88%; overflow-y:auto; border-radius:26px 26px 0 0; padding:22px 18px calc(26px + env(safe-area-inset-bottom));}
   .modal h3{margin:0 0 6px; font-size:17px; font-weight:800;}
+  /* ================= SHOPFLOW AI CHATBOT ================= */
+  .chat-fab{
+    position:fixed; right:max(16px, calc(50vw - 199px)); bottom:calc(92px + env(safe-area-inset-bottom)); z-index:55;
+    width:56px; height:56px; border-radius:999px; border:0; cursor:pointer;
+    background:linear-gradient(135deg,#0f766e,#0d9488); color:#fff; font-size:25px; line-height:1;
+    box-shadow:0 14px 28px -8px rgba(13,148,136,.65); display:grid; place-items:center;
+  }
+  .chat-panel{
+    position:fixed; left:50%; transform:translateX(-50%); bottom:0; z-index:70;
+    width:min(430px, 100vw); height:100vh; height:100dvh;
+    background:var(--bg); display:none; flex-direction:column;
+    box-shadow:0 30px 70px rgba(4,20,17,.4);
+  }
+  .chat-panel.open{display:flex;}
+  @media (min-width:560px){
+    .chat-panel{ bottom:24px; height:min(680px, calc(100dvh - 60px)); border-radius:26px; border:1px solid var(--line); overflow:hidden; }
+  }
+  .chat-head{
+    flex:none; display:flex; align-items:center; gap:10px; padding:14px 14px 12px;
+    background:linear-gradient(135deg,#0a2724 0%,#0c3a35 55%,#0f766e 135%); color:#fff;
+  }
+  .chat-head-ic{width:40px; height:40px; border-radius:999px; background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.25); display:grid; place-items:center; font-size:20px; flex:none;}
+  .chat-title{font-size:16px; font-weight:800; line-height:1.2;}
+  .chat-sub{font-size:12px; opacity:.85; margin-top:2px;}
+  .chat-close{margin-left:auto; flex:none; width:36px; height:36px; min-height:36px; border-radius:999px; border:1px solid rgba(255,255,255,.25); background:rgba(255,255,255,.14); color:#fff; font-size:15px; display:grid; place-items:center;}
+  .chat-msgs{flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:14px 14px 8px; display:flex; flex-direction:column; gap:8px;}
+  .chat-msg{max-width:85%; padding:10px 13px; border-radius:16px; font-size:14px; line-height:1.5; white-space:pre-wrap; overflow-wrap:break-word;}
+  .chat-msg.bot{background:var(--card); border:1px solid var(--line); color:var(--ink); align-self:flex-start; border-bottom-left-radius:6px; box-shadow:var(--shadow);}
+  .chat-msg.me{background:#0d9488; color:#fff; align-self:flex-end; border-bottom-right-radius:6px;}
+  .chat-msg.sys{align-self:center; background:transparent; color:var(--ink2); font-size:12.5px; text-align:center; padding:4px 8px; max-width:95%;}
+  .chat-msg.typing{opacity:.75;}
+  .chat-confirm{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:13px 14px; align-self:flex-start; max-width:92%; box-shadow:var(--shadow);}
+  .chat-confirm h4{margin:0 0 8px; font-size:14px; font-weight:800;}
+  .chat-confirm .crow{display:flex; justify-content:space-between; gap:12px; font-size:13.5px; padding:3px 0; color:var(--ink);}
+  .chat-confirm .crow span:first-child{color:var(--ink2);}
+  .chat-confirm .crow b{font-weight:700; text-align:right;}
+  .chat-confirm .cbtns{display:flex; gap:8px; margin-top:11px;}
+  .chat-confirm .cbtns .btn{flex:1; min-height:42px;}
+  .chat-chips{flex:none; display:flex; gap:8px; overflow-x:auto; padding:6px 14px 8px; -webkit-overflow-scrolling:touch; scrollbar-width:none;}
+  .chat-chips::-webkit-scrollbar{display:none;}
+  .chat-chip{flex:none; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:999px; padding:8px 14px; font-size:13px; font-weight:700; min-height:38px; white-space:nowrap;}
+  .chat-composer{flex:none; display:flex; gap:8px; padding:10px 12px calc(12px + env(safe-area-inset-bottom)); background:var(--card); border-top:1px solid var(--line);}
+  .chat-composer input{flex:1; min-width:0; margin:0;}
+  .chat-composer .btn{min-height:44px; padding:0 18px;}
   @media (prefers-reduced-motion:reduce){ *{transition:none !important;} }
 </style>
 </head>
@@ -297,6 +341,25 @@
   <div id="app" style="display:flex;flex-direction:column;flex:1;min-height:0;"></div>
   <div class="toast" id="toast"></div>
   <div class="modal-wrap" id="modalWrap"><div class="modal" id="modalBox"></div></div>
+  <button class="chat-fab" id="chatFab" onclick="chatToggle()" aria-label="Open ShopFlow AI chat" style="display:none;">💬</button>
+  <div class="chat-panel" id="chatPanel" aria-label="ShopFlow AI chat">
+    <div class="chat-head">
+      <div class="chat-head-ic">🤖</div>
+      <div class="grow"><div class="chat-title">ShopFlow AI</div><div class="chat-sub">Your shop assistant</div></div>
+      <button class="chat-close" onclick="chatToggle()" aria-label="Close chat">✕</button>
+    </div>
+    <div class="chat-msgs" id="chatMsgs"></div>
+    <div class="chat-chips">
+      <button class="chat-chip" onclick="chatChip('Add product')">➕ Add product</button>
+      <button class="chat-chip" onclick="chatChip('Check stock')">📦 Check stock</button>
+      <button class="chat-chip" onclick="chatChip('What were today\'s sales?')">📊 Today's sales</button>
+      <button class="chat-chip" onclick="chatChip('Add customer')">👤 Add customer</button>
+    </div>
+    <div class="chat-composer">
+      <input id="chatInput" type="text" placeholder="Type a message…" autocomplete="off" onkeydown="if(event.key==='Enter'){chatSend();}">
+      <button class="btn emerald" onclick="chatSend()">Send</button>
+    </div>
+  </div>
 <div id="print-area"></div>
 </div>
 
@@ -1580,11 +1643,146 @@ var VIEWS={ loading:vLoading, login:vLogin, onboard:vOnboard, welcome:vWelcome, 
   admin:vAdmin, profile:vProfile, settings:vSettings };
 function editProductView(){ return editProduct(S.editProdId); }
 function vLoading(){ return '<div class="scroll no-nav"><div class="auth-hero"><div class="logo">🛒</div><h1>ShopFlow</h1><p>Loading your shop…</p></div></div>'; }
-function render(){ if(S.screen!=='welcome') stopWelcomeTimers(); if(S.loading && S.screen!=='login' && S.screen!=='welcome'){ $('app').innerHTML=vLoading(); return; } $('app').innerHTML = VIEWS[S.screen] ? VIEWS[S.screen]() : vDashboard(); }
+function render(){ if(S.screen!=='welcome') stopWelcomeTimers(); if(S.loading && S.screen!=='login' && S.screen!=='welcome'){ $('app').innerHTML=vLoading(); chatFabSync(); return; } $('app').innerHTML = VIEWS[S.screen] ? VIEWS[S.screen]() : vDashboard(); chatFabSync(); }
 $('modalWrap').addEventListener('click', function(e){ if(e.target===this) closeModal(); });
 try{ var savedTheme=localStorage.getItem('shopflow_theme'); if(savedTheme==='dark'||savedTheme==='light'){ S.theme=savedTheme; document.documentElement.setAttribute('data-theme',S.theme); } }catch(e){}
+/* ================= SHOPFLOW AI CHATBOT =================
+   Understands Roman Urdu + English typed messages via /api/chat (Gemini key
+   stays server-side). Every write shows a confirmation card first and only
+   saves on Confirm. All visible text is English. */
+var CHAT={open:false, greeted:false, busy:false, pending:null, typingEl:null};
+var CHAT_SCREENS=['dashboard','pos','receipt','products','productForm','categories','purchases','purchaseForm','inventory','sales','saleDetail','customers','customerDetail','suppliers','supplierDetail','expenses','reports','employees','subscription','admin','profile','settings'];
+function chatVisible(){ return !!(S.user && S.shopId && !S.loading && CHAT_SCREENS.indexOf(S.screen)>=0); }
+function chatFabSync(){ var f=$('chatFab'); if(!f) return; f.style.display=chatVisible()?'':'none'; if(!chatVisible() && CHAT.open) chatClose(); }
+function chatToggle(){ if(CHAT.open) chatClose(); else chatOpen(); }
+function chatOpen(){ CHAT.open=true; $('chatPanel').classList.add('open'); $('chatFab').textContent='✕'; if(!CHAT.greeted){ CHAT.greeted=true; chatBot('Hello! I am your shop assistant.\nTry: "Atta 5kg, Rs 450, 20 packets add karo" or "What were today\'s sales?"'); } setTimeout(function(){ var i=$('chatInput'); if(i) i.focus(); },60); chatScroll(); }
+function chatClose(){ CHAT.open=false; var p=$('chatPanel'); if(p) p.classList.remove('open'); var f=$('chatFab'); if(f) f.textContent='💬'; }
+function chatScroll(){ var m=$('chatMsgs'); if(m) m.scrollTop=m.scrollHeight; }
+function chatAdd(cls, html){ var m=$('chatMsgs'); if(!m) return null; var d=document.createElement('div'); d.className='chat-msg '+cls; d.innerHTML=html; m.appendChild(d); chatScroll(); return d; }
+function chatBot(text){ chatAdd('bot', esc(text)); }
+function chatSys(text){ chatAdd('sys', esc(text)); }
+function chatChip(text){ var i=$('chatInput'); if(i) i.value=text; chatSend(); }
+function chatFindProduct(name){ if(!name) return null; var n=String(name).toLowerCase().trim(); var exact=null, part=null; S.products.forEach(function(p){ var pn=p.name.toLowerCase(); if(pn===n) exact=p; else if(!part && pn.indexOf(n)>=0) part=p; }); return exact||part; }
+function chatRemoveTyping(){ if(CHAT.typingEl && CHAT.typingEl.parentNode) CHAT.typingEl.parentNode.removeChild(CHAT.typingEl); CHAT.typingEl=null; }
+function chatSend(){
+  var inp=$('chatInput'); if(!inp) return; var text=inp.value.trim(); if(!text||CHAT.busy) return;
+  inp.value=''; chatAdd('me', esc(text)); CHAT.busy=true;
+  CHAT.typingEl=chatAdd('bot typing','Typing…');
+  var today=salesIn(0,0);
+  var ctx={ shop:S.shop.name||'', products:S.products.slice(0,100).map(function(p){ return {name:p.name, stock:p.stock, price:p.sell, unit:p.unit, category:p.cat}; }), categories:S.categories.slice(0,50).map(function(c){ return c.name; }), customers:S.customers.slice(0,50).map(function(c){ return c.name; }), todaySalesTotal:Math.round(sumSales(today)), todaySalesCount:today.length };
+  fetch('/api/chat',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:text, context:ctx})})
+    .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }).catch(function(){ return {ok:false, j:null}; }); })
+    .then(function(res){ CHAT.busy=false; chatRemoveTyping();
+      if(res.j && res.j.setupNeeded){ chatBot('AI is not set up yet. Add GEMINI_API_KEY in the Vercel project settings.'); return; }
+      if(!res.ok || !res.j || !res.j.intent){ chatBot('Sorry, I could not understand that. Please try again.'); return; }
+      chatHandle(res.j);
+    })
+    .catch(function(){ CHAT.busy=false; chatRemoveTyping(); chatBot('No connection — check your internet and try again.'); });
+}
+function chatHandle(r){
+  var intent=r.intent, e=r.entities||{};
+  if(intent==='general'){ chatBot(r.reply||'How can I help with your shop?'); return; }
+  if(intent==='todays_sales'){ var t=salesIn(0,0); chatBot('Today\'s sales: '+fmt(sumSales(t))+' from '+t.length+' sale'+(t.length===1?'':'s')+'.'); return; }
+  if(intent==='check_stock'){
+    if(e.productName){ var p=chatFindProduct(e.productName); if(!p){ chatBot('I could not find a product named "'+e.productName+'".'); return; } chatBot(p.name+': '+p.stock+' '+p.unit+'(s) in stock at '+fmt(p.sell)+' each.'+(p.stock===0?' It is out of stock.':(p.stock<=p.min?' Stock is low.':''))); return; }
+    var low=lowStock(), out=outStock();
+    if(!low.length && !out.length){ chatBot('All products are in stock. Total products: '+S.products.length+'.'); return; }
+    var lines=[]; out.forEach(function(p){ lines.push('Out of stock: '+p.name); }); low.forEach(function(p){ if(p.stock>0) lines.push('Low stock: '+p.name+' — only '+p.stock+' left'); });
+    chatBot('Stock alert:\n'+lines.slice(0,10).join('\n')); return;
+  }
+  if(intent==='add_product'){
+    if(!e.name){ chatBot('Which product should I add? Please include the name and selling price, for example: "Atta 5kg, Rs 450, 20 packets".'); return; }
+    if(e.salePrice==null || isNaN(e.salePrice)){ chatBot('What is the selling price of '+e.name+'? For example: "'+e.name+', Rs 450".'); return; }
+    if(chatFindProduct(e.name)){ chatBot('A product named "'+e.name+'" already exists. To change its stock, use Products → Stock Adjustment.'); return; }
+    CHAT.pending={intent:'add_product', e:{name:String(e.name), unit:String(e.unit||'piece'), salePrice:num(e.salePrice), purchasePrice:num(e.purchasePrice||0), quantity:Math.max(0,Math.floor(num(e.quantity||0))), categoryName:String(e.categoryName||'')}};
+    var pe=CHAT.pending.e;
+    chatConfirmCard('Add product', [['Name', pe.name], ['Selling price', fmt(pe.salePrice)], ['Stock', pe.quantity+' '+pe.unit+'(s)'], ['Category', pe.categoryName||'—']]);
+    return;
+  }
+  if(intent==='create_category'){
+    if(!e.name){ chatBot('What should the new category be called?'); return; }
+    if(S.categories.some(function(c){ return c.name.toLowerCase()===String(e.name).toLowerCase(); })){ chatBot('The category "'+e.name+'" already exists.'); return; }
+    CHAT.pending={intent:'create_category', e:{name:String(e.name)}};
+    chatConfirmCard('Create category', [['Name', e.name]]);
+    return;
+  }
+  if(intent==='add_customer'){
+    if(!e.name){ chatBot('What is the customer\'s name?'); return; }
+    CHAT.pending={intent:'add_customer', e:{name:String(e.name), phone:String(e.phone||'')}};
+    chatConfirmCard('Add customer', [['Name', e.name], ['Phone', e.phone||'—']]);
+    return;
+  }
+  if(intent==='record_sale'){
+    if(!e.productName){ chatBot('Which product was sold? For example: "2 Sugar 1kg becho".'); return; }
+    var p2=chatFindProduct(e.productName); if(!p2){ chatBot('I could not find a product named "'+e.productName+'".'); return; }
+    var q=Math.max(1, Math.floor(num(e.quantity||1)));
+    if(!S.shop.allowNegStock && q>p2.stock){ chatBot('Only '+p2.stock+' in stock for '+p2.name+'.'); return; }
+    var cust=null; if(e.customerName){ S.customers.forEach(function(c){ if(c.name.toLowerCase()===String(e.customerName).toLowerCase()) cust=c; }); }
+    CHAT.pending={intent:'record_sale', e:{productId:p2.id, productName:p2.name, quantity:q, price:p2.sell, cost:p2.buy*q, total:p2.sell*q, customerId:cust?cust.id:'', customerName:cust?cust.name:'Walk-in'}};
+    chatConfirmCard('Record sale', [['Product', p2.name], ['Quantity', q+' x '+fmt(p2.sell)], ['Total', fmt(p2.sell*q)], ['Customer', cust?cust.name:'Walk-in']]);
+    return;
+  }
+  chatBot(r.reply||'How can I help with your shop?');
+}
+function chatConfirmCard(title, rows){
+  var m=$('chatMsgs'); if(!m) return; var d=document.createElement('div'); d.className='chat-confirm';
+  d.innerHTML='<h4>'+esc(title)+'</h4>'+rows.map(function(rw){ return '<div class="crow"><span>'+esc(rw[0])+'</span><b>'+esc(String(rw[1]))+'</b></div>'; }).join('')
+    +'<div class="cbtns"><button class="btn emerald" onclick="chatConfirm()">Confirm</button><button class="btn ghost" onclick="chatCancel()">Cancel</button></div>';
+  m.appendChild(d); chatScroll();
+}
+function chatCancel(){ CHAT.pending=null; chatSys('Cancelled. Nothing was saved.'); }
+function chatConfirm(){
+  var p=CHAT.pending; if(!p) return; CHAT.pending=null;
+  if(p.intent==='add_product') chatDoAddProduct(p.e);
+  else if(p.intent==='create_category') chatDoAddCategory(p.e);
+  else if(p.intent==='add_customer') chatDoAddCustomer(p.e);
+  else if(p.intent==='record_sale') chatDoRecordSale(p.e);
+}
+function chatDoAddProduct(e){
+  var cat=catByName(e.categoryName);
+  var prodId=rid('prod_',8);
+  var payload={shopId:S.shopId, name:e.name, barcode:'', sku:'SKU-'+rid('',6).toUpperCase(), categoryId:cat?cat.id:'', categoryName:e.categoryName, supplierId:'', purchasePrice:e.purchasePrice, salePrice:e.salePrice, quantity:e.quantity, minStockAlert:5, unit:e.unit, expiryDate:'', imageUrl:'', status:'Active', createdAt:serverTimestamp(), updatedAt:serverTimestamp()};
+  setDoc(doc(db,'shops',S.shopId,'products',prodId), payload).then(function(){
+    if(e.quantity>0) return setDoc(doc(db,'shops',S.shopId,'inventory_transactions',rid('tx_',10)), {shopId:S.shopId, productId:prodId, productName:e.name, type:'in', quantityChange:e.quantity, previousStock:0, newStock:e.quantity, reason:'Opening stock', performedBy:S.user.name||'Owner', createdAt:serverTimestamp()});
+  }).then(function(){ chatBot('Done! Added "'+e.name+'" — '+fmt(e.salePrice)+' each, '+e.quantity+' '+e.unit+'(s) in stock.'); toast('Product added'); }).catch(function(err){ chatBot('Sorry, that could not be saved. Please try again.'); toast(authErrorMessage(err)); });
+}
+function chatDoAddCategory(e){
+  setDoc(doc(db,'shops',S.shopId,'categories',rid('cat_',8)), {shopId:S.shopId, name:e.name, description:'', createdAt:serverTimestamp()})
+    .then(function(){ chatBot('Done! Category "'+e.name+'" created.'); toast('Category added'); })
+    .catch(function(err){ chatBot('Sorry, that could not be saved. Please try again.'); toast(authErrorMessage(err)); });
+}
+function chatDoAddCustomer(e){
+  setDoc(doc(db,'shops',S.shopId,'customers',rid('cust_',8)), {shopId:S.shopId, name:e.name, phone:e.phone, email:'', address:'', balance:0, creditLimit:500, createdAt:serverTimestamp()})
+    .then(function(){ chatBot('Done! Customer "'+e.name+'" added.'); toast('Customer added'); })
+    .catch(function(err){ chatBot('Sorry, that could not be saved. Please try again.'); toast(authErrorMessage(err)); });
+}
+function chatDoRecordSale(e){
+  var saleId=rid('sale_',10); var inv='';
+  runTransaction(db, function(tx){
+    var shopRef=doc(db,'shops',S.shopId);
+    return tx.get(shopRef).then(function(shopSnap){
+      var lastNo=1000; if(shopSnap.exists() && shopSnap.data().lastSaleNo!=null) lastNo=num(shopSnap.data().lastSaleNo);
+      var nextNo=lastNo+1; inv='INV-'+String(nextNo).padStart(4,'0');
+      var prodRef=doc(db,'shops',S.shopId,'products',e.productId);
+      return tx.get(prodRef).then(function(snap){
+        var curQty=snap.exists()?num(snap.data().quantity):0;
+        var newQty=curQty-e.quantity;
+        if(!S.shop.allowNegStock && newQty<0) throw new Error('Only '+curQty+' in stock for '+e.productName);
+        if(newQty<0) newQty=0;
+        var salePayload={shopId:S.shopId, invoiceNumber:inv, cashierId:S.user.uid, cashierName:S.user.name||'', customerId:e.customerId, customerName:e.customerName, customerPhone:'', items:[{productId:e.productId, productName:e.productName, quantity:e.quantity, unitPrice:e.price, totalPrice:e.total, cost:e.cost, disc:0}], subtotal:e.total, discount:0, tax:0, total:e.total, paidAmount:e.total, changeAmount:0, paymentMethod:'cash', paymentStatus:'paid', notes:'Recorded by ShopFlow AI', cost:e.cost, createdAt:serverTimestamp()};
+        tx.set(doc(db,'shops',S.shopId,'sales',saleId), salePayload);
+        tx.update(shopRef, {lastSaleNo:nextNo, updatedAt:serverTimestamp()});
+        tx.update(prodRef, {quantity:newQty, updatedAt:serverTimestamp()});
+        tx.set(doc(db,'shops',S.shopId,'inventory_transactions',rid('tx_',10)), {shopId:S.shopId, productId:e.productId, productName:e.productName, type:'sale', quantityChange:-e.quantity, previousStock:curQty, newStock:newQty, reason:'Sale #'+inv, performedBy:S.user.name||'Owner', createdAt:serverTimestamp()});
+      });
+    });
+  }).then(function(){
+    S.lastSale={id:saleId, inv:inv, ts:Date.now(), off:0, items:[{name:e.productName, qty:e.quantity, price:e.price, cost:e.cost, disc:0}], total:e.total, cost:e.cost, cust:e.customerName, pay:'Cash', disc:0, tax:0, paid:e.total};
+    chatBot('Done! Sale recorded — '+e.quantity+' x '+e.productName+' for '+fmt(e.total)+' (Invoice '+inv+', Cash).'); toast('Sale recorded');
+  }).catch(function(err){ chatBot('Sorry, the sale could not be recorded. '+(err&&err.message?err.message:'Please try again.')); toast(authErrorMessage(err)); });
+}
 /* expose handlers for inline onclick attributes (module scope is not global) */
-Object.assign(window, {S:S, render:render, go:go, setOnboard:setOnboard, onboardNext:onboardNext, toggleNotif:toggleNotif, setAuth:setAuth, doLogin:doLogin, forgotPassword:forgotPassword, launchShop:launchShop, setDashFilter:setDashFilter, refreshPOSList:refreshPOSList, addToCart:addToCart, chgQty:chgQty, removeCart:removeCart, setItemDisc:setItemDisc, updChange:updChange, completeSale:completeSale, saveProduct:saveProduct, adjustStockPrompt:adjustStockPrompt, saveAdjustment:saveAdjustment, archiveProduct:archiveProduct, addCat:addCat, renameCat:renameCat, saveCat:saveCat, deleteCat:deleteCat, newPurchase:newPurchase, setPurProd:setPurProd, addPurLine:addPurLine, completePurchase:completePurchase, collectPayment:collectPayment, paySupplier:paySupplier, addCustomer:addCustomer, addSupplier:addSupplier, addExpense:addExpense, toggleEmp:toggleEmp, addEmployee:addEmployee, choosePlan:choosePlan, submitPayment:submitPayment, adminPay:adminPay, logout:logout, setTheme:setTheme, closeModal:closeModal, toast:toast, exportSalesCSV:exportSalesCSV, exportProductsCSV:exportProductsCSV, exportCustomersCSV:exportCustomersCSV, downloadBackup:downloadBackup, saveShopSettings:saveShopSettings, googleLogin:googleLogin, downloadReceiptPDF:downloadReceiptPDF, printReceipt:printReceipt, printSaleReceipt:printSaleReceipt, printCustomerReceipt:printCustomerReceipt, printCustomerStatement:printCustomerStatement, downloadReportPDF:downloadReportPDF, openScreenshotPicker:openScreenshotPicker, attachScreenshot:attachScreenshot, viewScreenshot:viewScreenshot, changePasswordPrompt:changePasswordPrompt, changePassword:changePassword, press:press, unpress:unpress});
+Object.assign(window, {S:S, render:render, go:go, setOnboard:setOnboard, onboardNext:onboardNext, toggleNotif:toggleNotif, setAuth:setAuth, doLogin:doLogin, forgotPassword:forgotPassword, launchShop:launchShop, setDashFilter:setDashFilter, refreshPOSList:refreshPOSList, addToCart:addToCart, chgQty:chgQty, removeCart:removeCart, setItemDisc:setItemDisc, updChange:updChange, completeSale:completeSale, saveProduct:saveProduct, adjustStockPrompt:adjustStockPrompt, saveAdjustment:saveAdjustment, archiveProduct:archiveProduct, addCat:addCat, renameCat:renameCat, saveCat:saveCat, deleteCat:deleteCat, newPurchase:newPurchase, setPurProd:setPurProd, addPurLine:addPurLine, completePurchase:completePurchase, collectPayment:collectPayment, paySupplier:paySupplier, addCustomer:addCustomer, addSupplier:addSupplier, addExpense:addExpense, toggleEmp:toggleEmp, addEmployee:addEmployee, choosePlan:choosePlan, submitPayment:submitPayment, adminPay:adminPay, logout:logout, setTheme:setTheme, closeModal:closeModal, chatToggle:chatToggle, chatSend:chatSend, chatChip:chatChip, chatConfirm:chatConfirm, chatCancel:chatCancel, toast:toast, exportSalesCSV:exportSalesCSV, exportProductsCSV:exportProductsCSV, exportCustomersCSV:exportCustomersCSV, downloadBackup:downloadBackup, saveShopSettings:saveShopSettings, googleLogin:googleLogin, downloadReceiptPDF:downloadReceiptPDF, printReceipt:printReceipt, printSaleReceipt:printSaleReceipt, printCustomerReceipt:printCustomerReceipt, printCustomerStatement:printCustomerStatement, downloadReportPDF:downloadReportPDF, openScreenshotPicker:openScreenshotPicker, attachScreenshot:attachScreenshot, viewScreenshot:viewScreenshot, changePasswordPrompt:changePasswordPrompt, changePassword:changePassword, press:press, unpress:unpress});
 /* cached shop: the welcome IS the loading screen — show it at once while auth resolves */
 (function(){ var c=readCachedShop(); if(c){ S.shop=Object.assign(defaultShop(), {name:c.name, category:c.category||'', address:c.address||''}); S.welcomed=true; S.screen='welcome'; startWelcome(); } })();
 initAuth();
