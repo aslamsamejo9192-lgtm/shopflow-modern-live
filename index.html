@@ -503,42 +503,52 @@ function downloadReceiptPDF(btn){
   var due=s.total-s.paid;
   var cashier=((S.user && S.user.name) || (S.user && S.user.email) || 'Owner');
   var method=((s.pay||'CASH')+'').toUpperCase();
-  var meta=['Invoice: '+s.inv, 'Date: '+tstr(s.ts), 'Cashier: '+cashier, 'Customer: '+(s.cust||'Walk-in Customer')];
-  var totals=[['Subtotal: ', fmt(sub)]];
-  if(s.disc) totals.push(['Discount: ', '- '+fmt(s.disc)]);
-  if(s.tax) totals.push(['Tax: ', fmt(s.tax)]);
-  totals.push(['Paid ('+method+'): ', fmt(s.paid)]);
-  if(due>0) totals.push(['Due: ', fmt(due)]);
+  function num2(n){ return Math.round(n).toLocaleString('en-PK'); }
+  function rdate(ts){ var d=new Date(ts); var mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]; var h=d.getHours(); var ap=h>=12?'pm':'am'; h=h%12; if(h===0) h=12; var hh=(h<10?'0':'')+h; var mm=d.getMinutes(); mm=(mm<10?'0':'')+mm; return d.getDate()+' '+mon+' '+d.getFullYear()+', '+hh+':'+mm+' '+ap; }
+  var custName=(s.cust==='Walk-in'||!s.cust)?'Walk-in Customer':s.cust;
+  var meta=['Invoice: '+s.inv, 'Date: '+rdate(s.ts), 'Cashier: '+cashier, 'Customer: '+custName];
+  var totals=[['Subtotal:', num2(sub), false]];
+  if(s.tax) totals.push(['Tax:', '+'+num2(s.tax), false]);
+  if(s.disc) totals.push(['Discount:', '-'+num2(s.disc), false]);
+  totals.push(['TOTAL:', 'Rs '+num2(s.total), true]);
+  totals.push(['Paid ('+method+'):', 'Rs '+num2(s.paid), false]);
+  if(due>0) totals.push(['Due:', fmt(due), false]);
+  function dashLine(doc, y){ doc.setLineDashPattern([4,3], 0); doc.line(M,y,RX,y); doc.setLineDashPattern([], 0); }
   function draw(doc){
     var y=16, i, j;
     doc.setFont('helvetica','bold'); doc.setFontSize(15);
     var storeLines=doc.splitTextToSize(S.shop.name||'ShopFlow', W-2*M);
     storeLines.forEach(function(l){ doc.text(l, CX, y, {align:'center'}); y+=17; });
-    y+=6; doc.setDrawColor(180,180,180); doc.line(M,y,RX,y); y+=8;
+    doc.setFont('helvetica','normal'); doc.setFontSize(10);
+    if(S.shop.address){ doc.splitTextToSize(S.shop.address, W-2*M).forEach(function(l){ doc.text(l, CX, y, {align:'center'}); y+=12; }); }
+    if(S.shop.phone){ doc.text('Phone: '+S.shop.phone, CX, y, {align:'center'}); y+=12; }
+    y+=4; dashLine(doc, y); y+=8;
     doc.setFont('helvetica','normal'); doc.setFontSize(9);
     meta.forEach(function(m){ doc.splitTextToSize(m, W-2*M).forEach(function(l){ doc.text(l, M, y); y+=12; }); });
-    y+=6; doc.line(M,y,RX,y); y+=8;
+    y+=6; dashLine(doc, y); y+=8;
     doc.setFont('helvetica','bold');
     doc.text('Item', M, y); doc.text('Qty', QTY_X, y, {align:'right'}); doc.text('Total (PKR)', RX, y, {align:'right'}); y+=11;
-    y+=4; doc.line(M,y,RX,y); y+=6;
+    y+=4; dashLine(doc, y); y+=6;
     doc.setFont('helvetica','normal');
     rows.forEach(function(r, idx){
       var lines=doc.splitTextToSize(r.name, ITEM_W);
       var price=(s.items[idx] && s.items[idx].price!=null)?s.items[idx].price:(r.qty?r.amt/r.qty:0);
       doc.text(r.qty+' x '+Math.round(price), QTY_X, y, {align:'right'});
-      doc.text(fmt(r.amt), RX, y, {align:'right'});
+      doc.text(num2(r.amt), RX, y, {align:'right'});
       lines.forEach(function(l, j){ doc.text(l, M, y+j*11.5); });
       y+=lines.length*11.5;
     });
-    y+=4; doc.line(M,y,RX,y); y+=8;
-    totals.forEach(function(t){ doc.text(t[0], M, y); doc.text(t[1], RX, y, {align:'right'}); y+=13; });
-    y+=6;
-    doc.setFont('helvetica','bold'); doc.setFontSize(12);
-    doc.text('TOTAL: '+fmt(s.total), CX, y, {align:'center'}); y+=16;
-    y+=8;
+    y+=4; dashLine(doc, y); y+=8;
+    totals.forEach(function(t){
+      doc.setFont('helvetica', t[2]?'bold':'normal'); doc.setFontSize(t[2]?13:9);
+      var vw=doc.getTextWidth(t[1]);
+      doc.text(t[0], RX-vw-8, y, {align:'right'});
+      doc.text(t[1], RX, y, {align:'right'});
+      y+= t[2]?17:13;
+    });
+    y+=4; dashLine(doc, y); y+=12;
     doc.setFont('helvetica','italic'); doc.setFontSize(9);
     doc.text('Thank you for shopping with us! Visit again.', CX, y, {align:'center'}); y+=12;
-    doc.setFont('helvetica','normal');
     doc.text('Powered by ShopFlow Cloud POS', CX, y, {align:'center'}); y+=12;
     return y+10;
   }
